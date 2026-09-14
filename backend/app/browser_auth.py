@@ -22,6 +22,29 @@ CHATS_CACHE_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 _browser_profile_lock = asyncio.Lock()
 
+# Set to True while an interactive e-mail OTP login session owns the browser
+# profile. Background refresh must not touch the profile in that window.
+EMAIL_LOGIN_ACTIVE = False
+
+
+def set_email_login_active(active: bool) -> None:
+    global EMAIL_LOGIN_ACTIVE
+    EMAIL_LOGIN_ACTIVE = active
+
+
+def is_email_login_active() -> bool:
+    return EMAIL_LOGIN_ACTIVE
+
+
+def container_chrome_args() -> list:
+    """Флаги для запуска Chromium от root внутри Docker (иначе не стартует)."""
+    try:
+        if os.geteuid() == 0:
+            return ["--no-sandbox", "--disable-dev-shm-usage"]
+    except AttributeError:
+        pass  # Windows: geteuid отсутствует
+    return []
+
 def get_chrome_executable_path() -> Optional[str]:
     """
     Returns Chrome/Chromium executable path across Linux, Windows, macOS.
@@ -279,12 +302,12 @@ async def run_browser_login(timeout_seconds: int = 120) -> Dict[str, Any]:
                 launch_kwargs: Dict[str, Any] = {
                     "user_data_dir": PROFILE_DIR,
                     "headless": False,
-                    "args": ["--no-proxy-server", "--start-maximized", "--no-first-run", "--no-default-browser-check"]
+                    "args": ["--no-proxy-server", "--start-maximized", "--no-first-run", "--no-default-browser-check"] + container_chrome_args()
                 }
                 if chrome_exe:
                     launch_kwargs["executable_path"] = chrome_exe
-                else:
-                    launch_kwargs["channel"] = "chrome"
+                # else: bundled Chromium от Playwright (channel="chrome" требовал
+                # системный Chrome и падал там, где его нет — VPS, чистый Windows)
 
                 context = await p.chromium.launch_persistent_context(**launch_kwargs)
 
@@ -330,12 +353,19 @@ async def run_browser_login(timeout_seconds: int = 120) -> Dict[str, Any]:
         except asyncio.TimeoutError:
             return {
                 "success": False,
-                "message": "Время ожидания входа истекло (120 секунд)."
+                "message": "Время ожидания входа истекло (120 секунд). На VPS без экрана используйте импорт cURL: скопируйте запрос из DevTools на локальном ПК (F12 → Network → Copy as cURL) и вставьте в Настройки → Авторизация → Импорт cURL."
             }
         except Exception as exc:
+            msg = str(exc)
+            if "Executable doesn't exist" in msg or "executable" in msg.lower() or "chrome" in msg.lower() or "browser" in msg.lower():
+                msg = (
+                    "Браузер Chrome/Chromium не найден на сервере. На VPS это нормально: "
+                    "используйте импорт cURL с локального ПК (Настройки → Авторизация → Импорт cURL). "
+                    f"Техническая деталь: {exc}"
+                )
             return {
                 "success": False,
-                "message": f"Ошибка при авторизации в браузере: {str(exc)}"
+                "message": f"Ошибка при авторизации в браузере: {msg}"
             }
         finally:
             if context is not None:
@@ -353,7 +383,7 @@ async def run_headless_refresh() -> Dict[str, Any]:
     from playwright.async_api import async_playwright
 
     if not os.path.exists(PROFILE_DIR):
-        return {"success": False, "message": "Профиль браузера не найден. Выполните вход через браузер один раз."}
+        return {"success": False, "message": "Профиль браузера не найден. На VPS используйте импорт cURL с локального ПК (Настройки → Авторизация → Импорт cURL)."}
 
     async with _browser_profile_lock:
         cleanup_browser_profile_locks()
@@ -367,12 +397,12 @@ async def run_headless_refresh() -> Dict[str, Any]:
                 launch_kwargs: Dict[str, Any] = {
                     "user_data_dir": PROFILE_DIR,
                     "headless": True,
-                    "args": ["--no-proxy-server", "--no-first-run", "--no-default-browser-check"]
+                    "args": ["--no-proxy-server", "--no-first-run", "--no-default-browser-check"] + container_chrome_args()
                 }
                 if chrome_exe:
                     launch_kwargs["executable_path"] = chrome_exe
-                else:
-                    launch_kwargs["channel"] = "chrome"
+                # else: bundled Chromium от Playwright (channel="chrome" требовал
+                # системный Chrome и падал там, где его нет — VPS, чистый Windows)
 
                 context = await p.chromium.launch_persistent_context(**launch_kwargs)
 
@@ -416,7 +446,10 @@ async def run_headless_refresh() -> Dict[str, Any]:
                     "token_info": info
                 }
         except Exception as e:
-            return {"success": False, "message": f"Фоновое обновление не удалось: {str(e)}"}
+            msg = str(e)
+            if "Executable doesn't exist" in msg or "executable" in msg.lower():
+                msg = "Chrome/Chromium не установлен на сервере. Это нормально для VPS: токен обновите через импорт cURL с локального ПК. " + msg
+            return {"success": False, "message": f"Фоновое обновление не удалось: {msg}. Проверьте токен через импорт cURL."}
         finally:
             if context is not None:
                 try:
@@ -434,6 +467,10 @@ async def ensure_active_token(force_refresh: bool = False) -> Tuple[str, str]:
     settings = await get_all_settings()
     token = settings.get("auth_token", "")
     header = settings.get("auth_header_name", "Authentication")
+
+    # Пока идет интерактивный вход по e-mail коду — профиль занят, не мешаем.
+    if is_email_login_active():
+        return header, token
 
     if token and not force_refresh:
         info = decode_token_info(token)

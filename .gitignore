@@ -12,6 +12,7 @@ backend/libs/
 # Database & Sensitive Data (Keep secrets and local DB private!)
 backend/dashboard.db*
 backend/browser_data/
+backend/email_login_shots/
 backend/last_token.txt
 backend/teams_chats_cache.json
 data/

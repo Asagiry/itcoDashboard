@@ -106,6 +106,30 @@ export const api = {
   browserRefresh: (): Promise<{ success: boolean; message: string; token_info?: any }> =>
     fetchJson(`${API_BASE}/auth/browser-refresh`, { method: 'POST' }),
 
+  teamsEmailStart: (email: string): Promise<{ success: boolean; message: string; session_id?: string; stage?: string }> =>
+    fetchJson(`${API_BASE}/auth/teams-email/start`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  teamsEmailSubmit: (session_id: string, code: string): Promise<{ success: boolean; message: string; token_info?: any }> =>
+    fetchJson(`${API_BASE}/auth/teams-email/submit-code`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id, code, remember_me: true }),
+    }),
+
+  teamsEmailCancel: (session_id: string): Promise<{ success: boolean; message: string }> =>
+    fetchJson(`${API_BASE}/auth/teams-email/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id }),
+    }),
+
+  updateShift: (date: string, payload: { start_time?: string; end_time?: string; duration_hours?: number; daily_report?: string; status?: string }): Promise<{ success: boolean; message: string; shift: Shift }> =>
+    fetchJson(`${API_BASE}/shifts/${date}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
   login: (username: string, password: string): Promise<LoginResponse> =>
     fetchJson<LoginResponse>(`${API_BASE}/auth/login`, {
       method: 'POST',

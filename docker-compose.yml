@@ -8,5 +8,8 @@ services:
     environment:
       - DATABASE_PATH=/app/data/dashboard.db
       - PYTHONUNBUFFERED=1
+      - TZ=Europe/Moscow
+      - APP_TIMEZONE=Europe/Moscow
     volumes:
       - ./data:/app/data
+      - ./browser_data:/app/backend/browser_data

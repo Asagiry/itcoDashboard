@@ -49,6 +49,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isBrowserLoggingIn, setIsBrowserLoggingIn] = useState(false);
   const [isBrowserRefreshing, setIsBrowserRefreshing] = useState(false);
   const [hasBrowserProfile, setHasBrowserProfile] = useState(false);
+  const [curlInput, setCurlInput] = useState('');
+  const [isParsingCurl, setIsParsingCurl] = useState(false);
+  const [isTestingTeams, setIsTestingTeams] = useState(false);
+  const [emailAddr, setEmailAddr] = useState('vepishin@it-co.ru');
+  const [emailSid, setEmailSid] = useState<string | null>(null);
+  const [emailStage, setEmailStage] = useState<string | null>(null);
+  const [codeInput, setCodeInput] = useState('');
+  const [isEmailBusy, setIsEmailBusy] = useState(false);
 
   // Search & Picker states for the two chat types
   const [activePicker, setActivePicker] = useState<'director' | 'daily' | null>(null);
@@ -141,6 +149,116 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleParseCurl = async () => {
+    if (!curlInput.trim()) {
+      showToast('error', 'Вставьте cURL', 'Скопируйте запрос из DevTools (F12 → Network → Copy as cURL).');
+      return;
+    }
+    setIsParsingCurl(true);
+    try {
+      const res = await api.parseCurl(curlInput.trim());
+      if ((res as any).success === false) {
+        showToast('error', 'Не удалось распарсить', (res as any).error || 'Проверьте формат cURL');
+      } else {
+        showToast('success', 'Токен применён', 'URL и токен сохранены на сервере.');
+        setCurlInput('');
+        const fresh = await api.getSettings();
+        setSettings(fresh);
+        onSettingsSaved();
+        loadChats();
+      }
+    } catch (err: any) {
+      showToast('error', 'Ошибка импорта cURL', err.message);
+    } finally {
+      setIsParsingCurl(false);
+    }
+  };
+
+  const handleTestTeams = async (chat_type: 'director' | 'daily') => {
+    setIsTestingTeams(true);
+    try {
+      const res = await api.testTeams(chat_type);
+      if (res.success) {
+        showToast('success', 'Тест прошёл', `Teams ответил ${res.status_code}`);
+      } else {
+        showToast('error', 'Тест не прошёл', res.error || `Статус ${res.status_code}`);
+      }
+    } catch (err: any) {
+      showToast('error', 'Ошибка теста', err.message);
+    } finally {
+      setIsTestingTeams(false);
+    }
+  };
+
+  const handleEmailStart = async () => {
+    if (!emailAddr.trim()) {
+      showToast('error', 'Введите e-mail', 'Нужна почта учётной записи Microsoft.');
+      return;
+    }
+    setIsEmailBusy(true);
+    showToast('info', 'Открываем вход Microsoft', 'Ждём страницу и отправляем код на почту (до ~1 мин)...');
+    try {
+      const res = await api.teamsEmailStart(emailAddr.trim());
+      if (res.success && res.session_id && res.stage === 'code_sent') {
+        setEmailSid(res.session_id);
+        setEmailStage(res.stage || null);
+        showToast('success', 'Код отправлен', 'Проверьте почту и введите 6 цифр ниже.');
+      } else if (res.success && res.session_id) {
+        setEmailSid(res.session_id);
+        setEmailStage(res.stage || null);
+        showToast('info', 'Требуется внимание', (res as any).message || 'Проверьте стадию входа.');
+      } else if (res.success) {
+        showToast('success', 'Уже вошли', res.message);
+        const fresh = await api.getSettings();
+        setSettings(fresh);
+        onSettingsSaved();
+      } else {
+        showToast('error', (res as any).stage === 'limited' ? 'Лимит Microsoft' : 'Не удалось начать вход', res.message);
+      }
+    } catch (err: any) {
+      showToast('error', 'Ошибка входа по почте', err.message);
+    } finally {
+      setIsEmailBusy(false);
+    }
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!emailSid || !codeInput.trim()) {
+      showToast('error', 'Введите код', 'Код из письма (6 цифр).');
+      return;
+    }
+    setIsEmailBusy(true);
+    try {
+      const res = await api.teamsEmailSubmit(emailSid, codeInput.trim());
+      if (res.success) {
+        showToast('success', 'Вход выполнен', res.message);
+        setEmailSid(null);
+        setEmailStage(null);
+        setCodeInput('');
+        const fresh = await api.getSettings();
+        setSettings(fresh);
+        onSettingsSaved();
+        loadChats();
+      } else {
+        showToast('error', 'Код не принят', res.message);
+      }
+    } catch (err: any) {
+      showToast('error', 'Ошибка проверки кода', err.message);
+    } finally {
+      setIsEmailBusy(false);
+    }
+  };
+
+  const handleEmailCancel = async () => {
+    if (!emailSid) return;
+    try {
+      await api.teamsEmailCancel(emailSid);
+    } catch {}
+    setEmailSid(null);
+    setEmailStage(null);
+    setCodeInput('');
+  };
+
   const findChatByUrl = (url: string) => {
     if (!url) return null;
     return teamsChats.find((c) => {
@@ -186,7 +304,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setSearchQuery('');
   };
 
-  const isAccountActive = hasBrowserProfile && !!settings.auth_token && !settings.token_info?.is_expired;
+  const isAccountActive = !!settings.auth_token && !settings.token_info?.is_expired;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
@@ -586,6 +704,126 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100 leading-relaxed">
                   Временный ключ Teams действует до {settings.token_info?.expires_at ? settings.token_info.expires_at.split(' ')[1] : 'вечера'} и обновляется сервером автоматически за час до окончания. Повторно входить не потребуется.
+                </div>
+
+                {!hasBrowserProfile && (
+                  <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-relaxed">
+                    На сервере (VPS) браузера нет — это нормально. Вход через браузер там не сработает.
+                    Используйте импорт cURL ниже с локального ПК: Teams в браузере → F12 → Network → отправьте сообщение → Copy as cURL.
+                  </div>
+                )}
+
+                {/* Вход по коду из письма — основной способ */}
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="text-xs font-bold text-slate-900">Вход по коду из письма</div>
+                  {!emailSid ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={emailAddr}
+                        onChange={(e) => setEmailAddr(e.target.value)}
+                        placeholder="vepishin@it-co.ru"
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleEmailStart}
+                        disabled={isEmailBusy}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                      >
+                        <span>{isEmailBusy ? 'Ждём Microsoft...' : 'Отправить код'}</span>
+                      </button>
+                    </div>
+                  ) : (<>
+                  emailStage === 'code_sent' ? (
+                    <div className="space-y-2">
+                      <div className="text-[11px] text-slate-500 leading-relaxed">
+                        Код отправлен на {emailAddr}. Введите 6 цифр из письма.
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={codeInput}
+                          onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                          placeholder="123456"
+                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={handleEmailSubmit}
+                          disabled={isEmailBusy}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                        >
+                          <span>{isEmailBusy ? 'Проверяем...' : 'Войти'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleEmailCancel}
+                          disabled={isEmailBusy}
+                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          <span>Отмена</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-relaxed">
+                        {emailStage === 'limited'
+                          ? 'Microsoft временно ограничил отправку кодов (слишком частые запросы). Подождите 30–60 минут и нажмите «Отправить код» один раз.'
+                          : `Неожиданная стадия входа: ${emailStage}. Отмените и попробуйте ещё раз.`}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleEmailCancel}
+                        disabled={isEmailBusy}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <span>Отмена</span>
+                      </button>
+                    </div>
+                  </>
+                  )}
+                </div>
+
+                {/* cURL import — запасной способ входа на VPS */}
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="text-xs font-bold text-slate-900">Импорт cURL (работает на VPS)</div>
+                  <textarea
+                    value={curlInput}
+                    onChange={(e) => setCurlInput(e.target.value)}
+                    placeholder="Вставьте сюда 'Copy as cURL' из DevTools Teams..."
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleParseCurl}
+                      disabled={isParsingCurl}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <span>{isParsingCurl ? 'Импорт...' : 'Распарсить и применить'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestTeams('director')}
+                      disabled={isTestingTeams}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <span>Тест: директор</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestTeams('daily')}
+                      disabled={isTestingTeams}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <span>Тест: дейли-чат</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Actions */}

@@ -77,3 +77,24 @@ class ParseCurlResponse(BaseModel):
     auth_token: Optional[str] = None
     headers: Dict[str, str] = {}
     error: Optional[str] = None
+
+class UpdateShiftRequest(BaseModel):
+    start_time: Optional[str] = Field(None, description="Время начала смены (HH:MM:SS или HH:MM)")
+    end_time: Optional[str] = Field(None, description="Время завершения смены (HH:MM:SS или HH:MM)")
+    duration_hours: Optional[float] = Field(None, description="Длительность смены в часах (например, 8.0)")
+    daily_report: Optional[str] = Field(None, description="Текст ежедневного отчета")
+    status: Optional[str] = Field(None, description="Статус смены: not_started, in_progress, completed")
+
+class UpdateShiftResponse(BaseModel):
+    success: bool
+    shift: ShiftSchema
+    message: str
+
+class TeamsEmailStartRequest(BaseModel):
+    email: str = Field(..., description="E-mail учетной записи Microsoft (Teams)")
+
+class TeamsEmailSubmitRequest(BaseModel):
+    session_id: str = Field(..., description="ID сессии входа из start")
+    code: str = Field(..., description="Одноразовый код из письма")
+    remember_me: bool = Field(True, description="Отметить 'запомнить меня' (KMSI)")
+

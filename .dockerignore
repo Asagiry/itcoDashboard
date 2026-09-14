@@ -10,6 +10,7 @@ venv/
 .venv/
 backend/libs/
 backend/browser_data/
+backend/email_login_shots/
 frontend/node_modules/
 deploy_package.tar.gz
 itcoDashboard.zip

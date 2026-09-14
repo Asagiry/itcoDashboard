@@ -37,6 +37,15 @@ class BackendTestCase(unittest.TestCase):
 
         asyncio.run(init_db())
         cls.client = TestClient(app)
+        # Auth middleware requires Bearer token for /api/* (except /api/auth/login).
+        # Login with default dev credentials and attach token to the test client.
+        login_resp = cls.client.post(
+            "/api/auth/login",
+            json={"username": "vepishin", "password": "itcodevelopment"},
+        )
+        assert login_resp.status_code == 200, login_resp.text
+        cls.auth_token = login_resp.json()["token"]
+        cls.client.headers.update({"Authorization": f"Bearer {cls.auth_token}"})
 
     @classmethod
     def tearDownClass(cls):

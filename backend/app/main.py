@@ -3,7 +3,8 @@ import sys
 import json
 import asyncio
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional
+from zoneinfo import ZoneInfo
 
 # Ensure local libs in backend/libs are discoverable
 libs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "libs"))
@@ -39,7 +40,11 @@ from .schemas import (
     TestTeamsRequest,
     TestTeamsResponse,
     ParseCurlRequest,
-    ParseCurlResponse
+    ParseCurlResponse,
+    UpdateShiftRequest,
+    UpdateShiftResponse,
+    TeamsEmailStartRequest,
+    TeamsEmailSubmitRequest
 )
 from .teams_client import send_teams_message, decode_token_info
 from .curl_parser import parse_curl_command
@@ -149,23 +154,36 @@ async def get_me_endpoint(request: Request):
     }
 
 
+APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/Moscow")
+try:
+    MOSCOW_TZ = ZoneInfo(APP_TIMEZONE)
+except Exception:
+    MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+def get_now_dt() -> datetime:
+    return datetime.now(MOSCOW_TZ)
+
 def get_today_str() -> str:
-    return datetime.now().strftime("%Y-%m-%d")
+    return get_now_dt().strftime("%Y-%m-%d")
 
 def get_now_time_str() -> str:
-    return datetime.now().strftime("%H:%M:%S")
+    return get_now_dt().strftime("%H:%M:%S")
 
 def get_rounded_start_time() -> str:
     """
     Rounds shift opening time up to the hour (ceiling).
     - Arrived before 10:00 (e.g. 09:50) -> start official shift at 10:00:00.
     - If arrived after 10:00 with minutes (e.g. 10:15) -> ceil to next whole hour.
+    NOTE: uses Moscow time (APP_TIMEZONE). On VPS system clock is UTC,
+    so datetime.now() without tz gave 15:00 instead of 18:00.
     """
-    now = datetime.now()
+    now = get_now_dt()
     if now.hour < 10 or (now.hour == 10 and now.minute == 0 and now.second == 0):
         return "10:00:00"
     if now.minute > 0 or now.second > 0:
-        return f"{min(23, now.hour + 1):02d}:00:00"
+        if now.hour >= 23:
+            return "23:59:00"
+        return f"{now.hour + 1:02d}:00:00"
     return f"{now.hour:02d}:00:00"
 
 def get_rounded_end_time() -> str:
@@ -174,10 +192,13 @@ def get_rounded_end_time() -> str:
     - e.g. 17:31 (5:31 PM) -> 18:00:00.
     - 18:00:00 -> 18:00:00.
     - 18:10 -> 19:00:00.
+    NOTE: uses Moscow time (APP_TIMEZONE).
     """
-    now = datetime.now()
+    now = get_now_dt()
     if now.minute > 0 or now.second > 0:
-        return f"{min(23, now.hour + 1):02d}:00:00"
+        if now.hour >= 23:
+            return "23:59:00"
+        return f"{now.hour + 1:02d}:00:00"
     return f"{now.hour:02d}:00:00"
 
 # --- Shift Endpoints ---
@@ -411,7 +432,8 @@ async def get_salary_stats():
     MINUTE_RATE = HOURLY_RATE / 60.0  # ~3.472917
 
     history = await get_shift_history(limit=500)
-    now = datetime.now()
+    # ВАЖНО: на VPS системное время UTC, поэтому всегда используем московское время.
+    now = get_now_dt()
     month_prefix = now.strftime("%Y-%m")
 
     completed_shifts = []
@@ -481,6 +503,100 @@ async def reset_today_shift():
         end_time=None
     )
     return {"success": True, "message": "Статус смены за сегодня успешно сброшен.", "shift": new_shift}
+
+
+def _normalize_time_str(value: Optional[str]) -> Optional[str]:
+    """Accepts HH:MM or HH:MM:SS, returns HH:MM:SS. None/empty -> None."""
+    if value is None:
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    parts = v.split(":")
+    try:
+        if len(parts) == 2:
+            h, m = int(parts[0]), int(parts[1])
+            s = 0
+        elif len(parts) == 3:
+            h, m, s = int(parts[0]), int(parts[1]), int(parts[2])
+        else:
+            raise ValueError("bad format")
+        if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= s <= 59):
+            raise ValueError("out of range")
+        return f"{h:02d}:{m:02d}:{s:02d}"
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Некорректное время '{value}'. Формат HH:MM или HH:MM:SS.")
+
+
+@app.put("/api/shifts/{date_str}", response_model=UpdateShiftResponse)
+async def update_shift_by_date(date_str: str, req: UpdateShiftRequest):
+    """Ручная правка смены (доделка: схемы UpdateShift* уже были, эндпоинта не было).
+    Позволяет исправить битую запись после сбоя часового пояса на VPS.
+    Поддерживает duration_hours: end_time = start_time + duration."""
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректная дата. Формат YYYY-MM-DD.")
+    shift = await get_shift_by_date(date_str)
+    if not shift:
+        raise HTTPException(status_code=404, detail=f"Смена за {date_str} не найдена.")
+
+    fields: dict = {}
+    start_norm = _normalize_time_str(req.start_time) if req.start_time is not None else None
+    end_norm = _normalize_time_str(req.end_time) if req.end_time is not None else None
+
+    # duration_hours имеет приоритет над end_time, если задан вместе со start
+    if req.duration_hours is not None:
+        try:
+            dur = float(req.duration_hours)
+        except Exception:
+            raise HTTPException(status_code=400, detail="duration_hours должен быть числом.")
+        if not (0 < dur <= 24):
+            raise HTTPException(status_code=400, detail="duration_hours должен быть в диапазоне (0, 24].")
+        base_start = start_norm or shift.get("start_time")
+        if not base_start:
+            raise HTTPException(status_code=400, detail="Для duration_hours нужен start_time.")
+        st_sec = _parse_time_sec(base_start)
+        if st_sec is None:
+            raise HTTPException(status_code=400, detail="Некорректный start_time.")
+        et_sec = st_sec + int(round(dur * 3600))
+        if et_sec >= 24 * 3600:
+            et_sec = 24 * 3600 - 60  # cap 23:59
+        end_norm = f"{et_sec // 3600:02d}:{(et_sec % 3600) // 60:02d}:{et_sec % 60:02d}"
+        if req.start_time is not None:
+            fields["start_time"] = start_norm
+        fields["end_time"] = end_norm
+    else:
+        if req.start_time is not None:
+            fields["start_time"] = start_norm
+        if req.end_time is not None:
+            fields["end_time"] = end_norm
+
+    if req.daily_report is not None:
+        fields["daily_report"] = req.daily_report
+    if req.status is not None:
+        if req.status not in ("not_started", "in_progress", "completed"):
+            raise HTTPException(status_code=400, detail="Некорректный status.")
+        fields["status"] = req.status
+
+    if not fields:
+        raise HTTPException(status_code=400, detail="Нет полей для обновления.")
+    updated = await create_or_update_shift(date_str, **fields)
+    return UpdateShiftResponse(success=True, shift=ShiftSchema(**updated), message=f"Смена за {date_str} обновлена.")
+
+
+@app.get("/api/debug/time")
+async def debug_time():
+    """Диагностика часового пояса на VPS: системное UTC vs московское."""
+    sys_now = datetime.now()
+    msk_now = get_now_dt()
+    return {
+        "app_timezone": APP_TIMEZONE,
+        "system_local": sys_now.strftime("%Y-%m-%d %H:%M:%S"),
+        "moscow_now": msk_now.strftime("%Y-%m-%d %H:%M:%S"),
+        "moscow_today": msk_now.strftime("%Y-%m-%d"),
+        "rounded_end_now": get_rounded_end_time(),
+    }
 
 # --- Settings Endpoints ---
 
@@ -633,6 +749,42 @@ async def browser_login_endpoint():
 async def browser_refresh_endpoint():
     result = await run_headless_refresh()
     return result
+
+# --- Teams e-mail OTP login (passwordless) ---
+
+@app.post("/api/auth/teams-email/start")
+async def teams_email_start_endpoint(req: TeamsEmailStartRequest):
+    from .teams_email_login import start_email_login
+    return await start_email_login(req.email)
+
+@app.post("/api/auth/teams-email/submit-code")
+async def teams_email_submit_endpoint(req: TeamsEmailSubmitRequest):
+    from .teams_email_login import submit_email_code
+    return await submit_email_code(req.session_id, req.code, req.remember_me)
+
+@app.get("/api/auth/teams-email/status/{session_id}")
+async def teams_email_status_endpoint(session_id: str):
+    from .teams_email_login import get_email_session_status
+    return await get_email_session_status(session_id)
+
+@app.post("/api/auth/teams-email/cancel")
+async def teams_email_cancel_endpoint(payload: dict):
+    from .teams_email_login import cancel_email_login
+    return await cancel_email_login(payload.get("session_id", ""))
+
+@app.post("/api/auth/teams-email/click")
+async def teams_email_click_endpoint(payload: dict):
+    from .teams_email_login import click_in_session
+    texts = payload.get("texts") or [payload.get("text", "")]
+    return await click_in_session(payload.get("session_id", ""), *[t for t in texts if t])
+
+@app.get("/api/auth/teams-email/shot/{session_id}")
+async def teams_email_shot_endpoint(session_id: str, name: Optional[str] = None):
+    from .teams_email_login import get_shot_path
+    path = get_shot_path(session_id, name)
+    if not path:
+        raise HTTPException(status_code=404, detail="Скриншот не найден.")
+    return FileResponse(path, media_type="image/png")
 
 # Static file serving if frontend is built
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
