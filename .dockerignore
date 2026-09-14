@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+backend/libs/
+backend/browser_data/
+frontend/node_modules/
+deploy_package.tar.gz
+itcoDashboard.zip

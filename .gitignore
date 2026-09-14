@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+backend/libs/
+
+# Database & Sensitive Data (Keep secrets and local DB private!)
+backend/dashboard.db*
+backend/browser_data/
+backend/last_token.txt
+backend/teams_chats_cache.json
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Archives & Temporary files
+*.tar.gz
+*.zip
+*.log
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

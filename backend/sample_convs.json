@@ -1,0 +1,264 @@
+[
+  {
+    "type": "Conversation",
+    "version": 1788960253847,
+    "properties": {
+      "addedBy": "8:live:.cid.94e50b549f6c958b",
+      "addedByTenantId": "00000000-0000-0000-0000-000000000000",
+      "lastimreceivedtime": "2026-09-09T12:04:03.377Z",
+      "consumptionhorizon": "1788958332352;1788958386756;1788958332312",
+      "consumptionHorizonBookmark": "0;1788160486423;0",
+      "quickReplyAugmentation": "{\"suggestedActivities\":[{\"type\":\"suggestion\",\"id\":\"lp0wzWr29U+ViZYplhPM0g.1.1.1.1785774054.1.0\",\"timestamp\":\"2026-09-09T12:04:03.5518382+00:00\",\"from\":{\"id\":\"28:30005246-e706-444f-ba61-8647ef09db75\",\"name\":\"Cortana\"},\"conversation\":{\"isGroup\":false,\"id\":\"19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2\"},\"suggestedActions\":{\"actions\":[{\"type\":\"imBack\",\"title\":\"Да\",\"value\":\"Да\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-09T12:04:03.5518382Z\",\"targetMessageId\":\"1788955443377\"}},{\"type\":\"imBack\",\"title\":\"Нет\",\"value\":\"Нет\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-09T12:04:03.5518382Z\",\"targetMessageId\":\"1788955443377\"}},{\"type\":\"imBack\",\"title\":\"Не знаю\",\"value\":\"Не знаю\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-09T12:04:03.5518382Z\",\"targetMessageId\":\"1788955443377\"}}]},\"replyToId\":\"1788955443377\"}]}",
+      "isemptyconversation": "False"
+    },
+    "threadProperties": {
+      "isStickyThread": "true",
+      "isCreator": false,
+      "createdat": "2026-08-31T07:14:34.967Z",
+      "originalThreadId": "19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2",
+      "gapDetectionEnabled": "True",
+      "lastjoinat": "1788160474967",
+      "lastSequenceId": "1111",
+      "version": "1788959612583",
+      "threadType": "chat",
+      "productThreadType": "OneToOneChat",
+      "rosterVersion": 1788512219936
+    },
+    "memberProperties": {
+      "role": "Admin",
+      "isReader": false,
+      "memberExpirationTime": 0,
+      "relationshipState": {
+        "inQuarantine": false
+      }
+    },
+    "lastMessage": {
+      "sequenceId": 1111,
+      "skypeeditedid": "1788959598551",
+      "conversationid": "19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2",
+      "conversationLink": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2",
+      "type": "Message",
+      "id": "1788959598595",
+      "clientmessageid": "1788959598551",
+      "version": "1788959614865",
+      "messagetype": "Text",
+      "content": "",
+      "from": "https://msgapi.teams.live.com/v1/users/ME/contacts/8:live:.cid.f65a02caf4625b7e",
+      "imdisplayname": "",
+      "composetime": "2026-09-09T13:13:18.5950000Z",
+      "originalarrivaltime": "2026-09-09T13:13:18.5950000Z"
+    },
+    "messages": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2/messages",
+    "lastUpdatedMessageId": 1788959598595,
+    "lastUpdatedMessageVersion": 1788959614865,
+    "targetLink": "https://msgapi.teams.live.com/v1/threads/19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2",
+    "id": "19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2"
+  },
+  {
+    "type": "Conversation",
+    "version": 1788958324309,
+    "properties": {
+      "addedBy": "8:live:.cid.f65a02caf4625b7e",
+      "addedByTenantId": "00000000-0000-0000-0000-000000000000",
+      "lastimreceivedtime": "2026-09-09T11:19:41.142Z",
+      "consumptionhorizon": "1788952795686;1788958324151;3909428942246128046",
+      "quickReplyAugmentation": "{\"suggestedActivities\":[{\"type\":\"suggestion\",\"id\":\"7O7CiJQ7I0eyEFNAmSC3Gw.1.1.1.1681814722.1.0\",\"timestamp\":\"2026-09-09T11:19:41.3542327+00:00\",\"from\":{\"id\":\"28:30005246-e706-444f-ba61-8647ef09db75\",\"name\":\"Cortana\"},\"conversation\":{\"isGroup\":false,\"id\":\"19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2\"},\"suggestedActions\":{\"actions\":[{\"type\":\"imBack\",\"title\":\"Да\",\"value\":\"Да\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-09T11:19:41.3542327Z\",\"targetMessageId\":\"1788952781142\"}},{\"type\":\"imBack\",\"title\":\"Нет\",\"value\":\"Нет\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-09T11:19:41.3542327Z\",\"targetMessageId\":\"1788952781142\"}},{\"type\":\"imBack\",\"title\":\"Ну да\",\"value\":\"Ну да\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-09T11:19:41.3542327Z\",\"targetMessageId\":\"1788952781142\"}}]},\"replyToId\":\"1788952781142\"}]}",
+      "isemptyconversation": "False"
+    },
+    "threadProperties": {
+      "isStickyThread": "true",
+      "isCreator": true,
+      "createdat": "2026-09-01T12:46:27.554Z",
+      "gapDetectionEnabled": "True",
+      "lastjoinat": "1788266787554",
+      "originalThreadId": "19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2",
+      "lastSequenceId": "42",
+      "version": "1788447966029",
+      "threadType": "chat",
+      "productThreadType": "OneToOneChat",
+      "rosterVersion": 1788447966029
+    },
+    "memberProperties": {
+      "role": "Admin",
+      "isReader": false,
+      "memberExpirationTime": 0,
+      "relationshipState": {
+        "inQuarantine": false
+      }
+    },
+    "lastMessage": {
+      "sequenceId": 42,
+      "conversationid": "19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2",
+      "conversationLink": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2",
+      "type": "Message",
+      "id": "1788952795686",
+      "clientmessageid": "3909428942246128046",
+      "version": "1788952795686",
+      "messagetype": "RichText/Html",
+      "content": "<p>да</p>",
+      "from": "https://msgapi.teams.live.com/v1/users/ME/contacts/8:live:.cid.f65a02caf4625b7e",
+      "imdisplayname": "Vladimir Epishin",
+      "composetime": "2026-09-09T11:19:55.6860000Z",
+      "originalarrivaltime": "2026-09-09T11:19:55.6860000Z"
+    },
+    "messages": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2/messages",
+    "lastUpdatedMessageId": 1788952795686,
+    "lastUpdatedMessageVersion": 1788952795686,
+    "targetLink": "https://msgapi.teams.live.com/v1/threads/19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2",
+    "id": "19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2"
+  },
+  {
+    "type": "Conversation",
+    "version": 1788957102671,
+    "properties": {
+      "addedBy": "8:live:.cid.f65a02caf4625b7e",
+      "addedByTenantId": "00000000-0000-0000-0000-000000000000",
+      "consumptionhorizon": "1788957101749;1788957102655;1228889418321966307",
+      "isemptyconversation": "False"
+    },
+    "threadProperties": {
+      "productContext": "TFL",
+      "isStickyThread": "true",
+      "isCreator": true,
+      "createdat": "2026-09-09T12:31:32.192Z",
+      "originalThreadId": "19:stream01_vax62bbhauiabc7mbv2vflfd7hd7vtcynx5sonulcyjcfxpzkiha@thread.v2",
+      "gapDetectionEnabled": "True",
+      "lastjoinat": "1788957092192",
+      "lastSequenceId": "1",
+      "version": "1788957092192",
+      "threadType": "streamofnotes",
+      "productThreadType": "StreamOfNotes",
+      "rosterVersion": 1788957092192
+    },
+    "memberProperties": {
+      "role": "Owner",
+      "isReader": false,
+      "memberExpirationTime": 0
+    },
+    "lastMessage": {
+      "sequenceId": 1,
+      "conversationid": "48:notes",
+      "conversationLink": "https://msgapi.teams.live.com/v1/users/ME/conversations/48:notes",
+      "type": "Message",
+      "id": "1788957101749",
+      "clientmessageid": "1228889418321966307",
+      "version": "1788957101749",
+      "messagetype": "RichText/Html",
+      "content": "<p>в</p>",
+      "from": "https://msgapi.teams.live.com/v1/users/ME/contacts/8:live:.cid.f65a02caf4625b7e",
+      "imdisplayname": "Vladimir Epishin",
+      "composetime": "2026-09-09T12:31:41.7490000Z",
+      "originalarrivaltime": "2026-09-09T12:31:41.7490000Z"
+    },
+    "messages": "https://msgapi.teams.live.com/v1/users/ME/conversations/48:notes/messages",
+    "lastUpdatedMessageId": 1788957101749,
+    "lastUpdatedMessageVersion": 1788957101749,
+    "targetLink": "https://msgapi.teams.live.com/v1/threads/48:notes",
+    "id": "48:notes"
+  },
+  {
+    "type": "Conversation",
+    "version": 1788936952572,
+    "properties": {
+      "addedBy": "8:live:.cid.f65a02caf4625b7e",
+      "addedByTenantId": "00000000-0000-0000-0000-000000000000",
+      "lastimreceivedtime": "2026-09-08T09:21:13.038Z",
+      "consumptionhorizon": "1788859731748;1788859764518;1550202183675649600",
+      "quickReplyAugmentation": "{\"suggestedActivities\":[{\"type\":\"suggestion\",\"id\":\"4SfteCM/7UuVbPqcQHMcDg.1.1.1.171123515.1.0\",\"timestamp\":\"2026-09-08T09:18:53.1041152+00:00\",\"from\":{\"id\":\"28:30005246-e706-444f-ba61-8647ef09db75\",\"name\":\"Cortana\"},\"conversation\":{\"isGroup\":false,\"id\":\"19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2\"},\"suggestedActions\":{\"actions\":[{\"type\":\"imBack\",\"title\":\"Да, давай\",\"value\":\"Да, давай\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-08T09:18:53.1041152Z\",\"targetMessageId\":\"1788859132923\"}},{\"type\":\"imBack\",\"title\":\"Да, конечно\",\"value\":\"Да, конечно\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-08T09:18:53.1041152Z\",\"targetMessageId\":\"1788859132923\"}},{\"type\":\"imBack\",\"title\":\"Давайте\",\"value\":\"Давайте\",\"channelData\":{\"type\":\"reply\",\"device\":\"Undefined\",\"id\":\"00000000-0000-0000-0000-000000000000\",\"utcTime\":\"2026-09-08T09:18:53.1041152Z\",\"targetMessageId\":\"1788859132923\"}}]},\"replyToId\":\"1788859132923\"}]}",
+      "isemptyconversation": "False"
+    },
+    "threadProperties": {
+      "isStickyThread": "true",
+      "isCreator": true,
+      "createdat": "2026-08-31T06:58:36.952Z",
+      "gapDetectionEnabled": "True",
+      "lastjoinat": "1788159516952",
+      "originalThreadId": "19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2",
+      "lastSequenceId": "21",
+      "version": "1788505192276",
+      "threadType": "chat",
+      "productThreadType": "OneToOneChat",
+      "rosterVersion": 1788505192276
+    },
+    "memberProperties": {
+      "role": "Admin",
+      "isReader": false,
+      "memberExpirationTime": 0,
+      "relationshipState": {
+        "inQuarantine": false
+      }
+    },
+    "lastMessage": {
+      "sequenceId": 21,
+      "conversationid": "19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2",
+      "conversationLink": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2",
+      "type": "Message",
+      "id": "1788936952459",
+      "clientmessageid": "2181671371209805422",
+      "version": "1788936952459",
+      "messagetype": "RichText/Html",
+      "content": "<p>Здравствуйте, я на рабоче&#1084; &#1084;есте</p>",
+      "from": "https://msgapi.teams.live.com/v1/users/ME/contacts/8:live:.cid.f65a02caf4625b7e",
+      "imdisplayname": "Vladimir Epishin",
+      "composetime": "2026-09-09T06:55:52.4590000Z",
+      "originalarrivaltime": "2026-09-09T06:55:52.4590000Z"
+    },
+    "messages": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2/messages",
+    "lastUpdatedMessageId": 1788936952459,
+    "lastUpdatedMessageVersion": 1788936952459,
+    "targetLink": "https://msgapi.teams.live.com/v1/threads/19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2",
+    "id": "19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2"
+  },
+  {
+    "type": "Conversation",
+    "version": 1788870460321,
+    "properties": {
+      "addedBy": "8:live:.cid.f65a02caf4625b7e",
+      "addedByTenantId": "00000000-0000-0000-0000-000000000000",
+      "lastimreceivedtime": "2026-09-08T12:26:51.746Z",
+      "consumptionhorizon": "1788870413053;1788870460334;5971398442987052091",
+      "isemptyconversation": "False"
+    },
+    "threadProperties": {
+      "isStickyThread": "true",
+      "isCreator": true,
+      "createdat": "2026-09-08T12:26:51.389Z",
+      "gapDetectionEnabled": "True",
+      "lastjoinat": "1788870411389",
+      "lastSequenceId": "3",
+      "originalThreadId": "19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2",
+      "version": "1788870425804",
+      "threadType": "chat",
+      "productThreadType": "OneToOneChat",
+      "rosterVersion": 1788870425804
+    },
+    "memberProperties": {
+      "role": "Admin",
+      "isReader": false,
+      "memberExpirationTime": 0,
+      "relationshipState": {
+        "inQuarantine": false
+      }
+    },
+    "lastMessage": {
+      "sequenceId": 3,
+      "conversationid": "19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2",
+      "conversationLink": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2",
+      "type": "Message",
+      "id": "1788870413053",
+      "clientmessageid": "5971398442987052091",
+      "version": "1788870413053",
+      "messagetype": "RichText/Html",
+      "content": "<p>ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINCDaLnriJ4TUKxcE4fB5+ryILt/Se8VXsgPiIk830X/ vepishin<br>\r\n&nbsp;</p>",
+      "from": "https://msgapi.teams.live.com/v1/users/ME/contacts/8:live:.cid.f65a02caf4625b7e",
+      "imdisplayname": "Vladimir Epishin",
+      "composetime": "2026-09-08T12:26:53.0530000Z",
+      "originalarrivaltime": "2026-09-08T12:26:53.0530000Z"
+    },
+    "messages": "https://msgapi.teams.live.com/v1/users/ME/conversations/19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2/messages",
+    "lastUpdatedMessageId": 1788870413053,
+    "lastUpdatedMessageVersion": 1788870413053,
+    "targetLink": "https://msgapi.teams.live.com/v1/threads/19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2",
+    "id": "19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2"
+  }
+]
