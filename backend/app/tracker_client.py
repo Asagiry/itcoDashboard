@@ -63,9 +63,16 @@ def normalize_tracker_status(raw_status: str) -> str:
     return "todo"
 
 async def _run_huly_bridge(cmd: str, *args: str) -> Dict[str, Any]:
-    bridge_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "huly_bridge.cjs"))
-    if not os.path.isfile(bridge_script):
-        return {"success": False, "error": f"Bridge script not found: {bridge_script}"}
+    candidates = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "huly_bridge.cjs")),
+        os.path.abspath(os.path.join(os.getcwd(), "backend", "huly_bridge.cjs")),
+        os.path.abspath("/app/backend/huly_bridge.cjs"),
+        os.path.abspath("backend/huly_bridge.cjs"),
+        os.path.abspath("huly_bridge.cjs"),
+    ]
+    bridge_script = next((c for c in candidates if os.path.isfile(c)), None)
+    if not bridge_script:
+        return {"success": False, "error": f"Bridge script not found. Checked paths: {candidates}"}
 
     cmd_args = ["node", bridge_script, cmd] + list(args)
     _add_tracker_log("info", f"Запуск Huly Bridge: {cmd}")
