@@ -20,7 +20,7 @@ const textMarkdownModule = require(path.join(hulyClientDir, 'node_modules', '@hc
 
 const { loadServerConfig, NodeWebSocketFactory } = apiModule;
 const { getResource, addLocation } = platformModule;
-const { TxOperations } = coreModule;
+const { TxOperations, pickPrimarySocialId } = coreModule;
 const { getClient: getCollabClient } = collabClientModule;
 const { getClient: getAccountClient } = accountClientModule;
 const { markupToJSON } = textModule;
@@ -105,13 +105,23 @@ async function loginUser(email, password) {
 }
 
 async function getClient(token, accountId) {
+  let primarySocialId = '1206170148776181761';
+  try {
+    const config = await loadServerConfig(HULY_URL);
+    const accountClient = getAccountClient(config.ACCOUNTS_URL, token);
+    const socialIds = await accountClient.getSocialIds(true);
+    if (socialIds && socialIds.length > 0) {
+      primarySocialId = pickPrimarySocialId(socialIds)._id;
+    }
+  } catch (err) {}
+
   addLocation(clientPkg.clientId, () => Promise.resolve(require(clientResourcesPkg)));
   const clientFactory = await getResource(clientPkg.default.function.GetClient);
   const connection = await clientFactory(token, HULY_WS, {
     socketFactory: NodeWebSocketFactory,
     connectionTimeout: 15000
   });
-  const tx = new TxOperations(connection, accountId || 'ff9ea626-1f72-4e2e-87fe-732ee19da639');
+  const tx = new TxOperations(connection, primarySocialId);
   return { connection, tx };
 }
 
@@ -264,7 +274,7 @@ async function updateStatus(token, accountId, issueKey, targetStatus) {
   }
 
   const newStatusId = STATUS_TO_ID[targetStatus] || targetStatus;
-  await tx.updateDoc('tracker:class:Issue', target._id, { status: newStatusId });
+  await tx.updateDoc('tracker:class:Issue', target.space, target._id, { status: newStatusId });
   await connection.close();
   return { success: true, key: issueKey, newStatus: targetStatus, statusId: newStatusId };
 }
