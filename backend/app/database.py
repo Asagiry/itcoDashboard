@@ -51,10 +51,23 @@ async def init_db():
                 daily_report TEXT DEFAULT '',
                 raw_response_start TEXT,
                 raw_response_end TEXT,
+                report_status TEXT NOT NULL DEFAULT 'not_scheduled',
+                report_scheduled_at TEXT,
+                report_sent_at TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Auto-migrate existing shifts table if columns are missing
+        async with db.execute("PRAGMA table_info(shifts)") as cursor:
+            columns = [row[1] for row in await cursor.fetchall()]
+            if "report_status" not in columns:
+                await db.execute("ALTER TABLE shifts ADD COLUMN report_status TEXT NOT NULL DEFAULT 'not_scheduled'")
+            if "report_scheduled_at" not in columns:
+                await db.execute("ALTER TABLE shifts ADD COLUMN report_scheduled_at TEXT")
+            if "report_sent_at" not in columns:
+                await db.execute("ALTER TABLE shifts ADD COLUMN report_sent_at TEXT")
 
         # Seed default settings if empty
         defaults = {
@@ -136,9 +149,20 @@ async def get_shift_history(limit: int = 100) -> List[Dict[str, Any]]:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
+async def get_pending_scheduled_shifts() -> List[Dict[str, Any]]:
+    await ensure_db_initialized()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM shifts WHERE report_status = 'scheduled' ORDER BY date ASC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
 async def delete_shift_by_date(date_str: str):
     await ensure_db_initialized()
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM shifts WHERE date = ?", (date_str,))
         await db.commit()
+
 

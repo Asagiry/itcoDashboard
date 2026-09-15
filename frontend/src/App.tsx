@@ -118,6 +118,25 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleSendReportNow = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.sendReportNow();
+      setShift(res.shift);
+      showToast(
+        res.success ? 'success' : 'error',
+        res.success ? 'Отчёт отправлен!' : 'Ошибка отправки',
+        res.message
+      );
+      await loadHistory();
+      await loadTodayShift();
+    } catch (err: any) {
+      showToast('error', 'Не удалось отправить отчёт', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSaveDraft = async (report: string) => {
     try {
       const res = await api.saveDraft(report);
@@ -169,7 +188,9 @@ export const App: React.FC = () => {
             shift={shift}
             onStartShift={handleStartShift}
             onEndShift={handleEndShift}
+            onSendReportNow={handleSendReportNow}
             onSaveDraft={handleSaveDraft}
+            onRefreshShift={loadTodayShift}
             onOpenSettings={() => setIsSettingsOpen(true)}
             isLoading={isLoading}
           />

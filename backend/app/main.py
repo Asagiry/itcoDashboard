@@ -26,6 +26,7 @@ from .database import (
     get_shift_by_date,
     create_or_update_shift,
     get_shift_history,
+    get_pending_scheduled_shifts,
     delete_shift_by_date
 )
 from .schemas import (
@@ -36,6 +37,7 @@ from .schemas import (
     StartShiftResponse,
     EndShiftRequest,
     EndShiftResponse,
+    SendReportNowResponse,
     SaveDraftRequest,
     TestTeamsRequest,
     TestTeamsResponse,
@@ -56,6 +58,111 @@ from .browser_auth import (
     extract_user_profile,
     PROFILE_DIR
 )
+
+async def execute_send_daily_report(date_str: str, force: bool = False) -> tuple[bool, int, str]:
+    """
+    Sends the shift daily report to Teams and updates the shift record with report_status.
+    """
+    shift = await get_shift_by_date(date_str)
+    if not shift:
+        return False, 404, "Смена не найдена."
+
+    if shift.get("report_status") == "sent" and not force:
+        return True, 200, "Отчёт уже был отправлен."
+
+    full_message = (shift.get("daily_report") or "").strip()
+    if not full_message:
+        return False, 400, "Текст отчёта пуст."
+
+    await create_or_update_shift(date_str, report_status="sending")
+
+    settings = await get_all_settings()
+    daily_url = settings.get("daily_chat_url", "").strip()
+
+    auth_header, auth_token = await ensure_active_token()
+
+    custom_headers = {}
+    try:
+        raw_custom = settings.get("custom_headers", "{}")
+        if raw_custom:
+            custom_headers = json.loads(raw_custom)
+    except Exception:
+        pass
+
+    user_prof = extract_user_profile()
+    sender_name = user_prof.get("name", "")
+
+    success, status_code, resp_text = False, 0, ""
+    if daily_url:
+        success, status_code, resp_text = await send_teams_message(
+            url=daily_url,
+            message=full_message,
+            auth_header_name=auth_header,
+            auth_token=auth_token,
+            custom_headers=custom_headers,
+            sender_name=sender_name
+        )
+
+        # If 401 or 403, session might have been rotated by Microsoft; auto-refresh and retry once!
+        if status_code in [401, 403] and os.path.exists(PROFILE_DIR):
+            print(f"⚠️ Teams вернул {status_code}, выполняем автоматическое обновление токена и повторяем...")
+            auth_header, auth_token = await ensure_active_token(force_refresh=True)
+            success, status_code, resp_text = await send_teams_message(
+                url=daily_url,
+                message=full_message,
+                auth_header_name=auth_header,
+                auth_token=auth_token,
+                custom_headers=custom_headers,
+                sender_name=sender_name
+            )
+    else:
+        resp_text = "URL чата для отчётов не заполнен в настройках. Отчёт сохранён локально."
+        success = True
+        status_code = 200
+
+    report_status = "sent" if success else "failed"
+    now_time_str = get_now_time_str()
+
+    await create_or_update_shift(
+        date_str,
+        report_status=report_status,
+        report_sent_at=now_time_str,
+        raw_response_end=json.dumps({"status_code": status_code, "response": resp_text}, ensure_ascii=False)
+    )
+
+    return success, status_code, resp_text
+
+async def scheduled_report_runner():
+    """
+    Background worker: checks for shifts scheduled to send reports at rounded end time (e.g. 18:00).
+    When current Moscow time reaches or passes the scheduled time, sends the report to Teams.
+    """
+    while True:
+        try:
+            await asyncio.sleep(5)
+            pending_shifts = await get_pending_scheduled_shifts()
+            now_dt = get_now_dt()
+            for shift in pending_shifts:
+                date_str = shift.get("date")
+                sched_at = shift.get("report_scheduled_at") or shift.get("end_time") or "18:00:00"
+                try:
+                    parts = sched_at.split(":")
+                    sh = int(parts[0])
+                    sm = int(parts[1]) if len(parts) > 1 else 0
+                    ss = int(parts[2]) if len(parts) > 2 else 0
+                    s_year, s_month, s_day = map(int, date_str.split("-"))
+                    sched_dt = datetime(s_year, s_month, s_day, sh, sm, ss, tzinfo=MOSCOW_TZ)
+                except Exception as pe:
+                    print(f"Ошибка парсинга времени отчёта {date_str} ({sched_at}): {pe}")
+                    continue
+
+                if now_dt >= sched_dt:
+                    print(f"⏰ Наступило время отправки отчёта за {date_str} ({sched_at}). Отправка в Teams...")
+                    await execute_send_daily_report(date_str)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Ошибка в scheduled_report_runner: {e}")
 
 async def proactive_token_keeper():
     """
@@ -86,9 +193,12 @@ async def lifespan(app: FastAPI):
     if os.path.exists(PROFILE_DIR) and len(os.listdir(PROFILE_DIR)) > 0:
         asyncio.create_task(ensure_active_token())
         keeper_task = asyncio.create_task(proactive_token_keeper())
+    scheduler_task = asyncio.create_task(scheduled_report_runner())
     yield
     if keeper_task:
         keeper_task.cancel()
+    if scheduler_task:
+        scheduler_task.cancel()
 
 app = FastAPI(title="ITCO Work Shift & Teams Dashboard", lifespan=lifespan)
 
@@ -332,61 +442,48 @@ async def end_shift(req: EndShiftRequest):
             detail="Пожалуйста, заполните поле 'Что я сегодня сделал' перед завершением смены."
         )
 
-    settings = await get_all_settings()
-    daily_url = settings.get("daily_chat_url", "").strip()
+    # Update database shift record with rounded end time (ceiling in user favor, e.g. 17:31 -> 18:00:00)
+    now_time = get_rounded_end_time()
+    now_dt = get_now_dt()
 
-    # Automatically ensure token is active using persistent browser session
-    auth_header, auth_token = await ensure_active_token()
+    # Calculate target datetime for today at rounded end time in Moscow timezone
+    parts = now_time.split(":")
+    sh = int(parts[0])
+    sm = int(parts[1]) if len(parts) > 1 else 0
+    ss = int(parts[2]) if len(parts) > 2 else 0
+    target_dt = datetime(now_dt.year, now_dt.month, now_dt.day, sh, sm, ss, tzinfo=MOSCOW_TZ)
 
-    custom_headers = {}
-    try:
-        raw_custom = settings.get("custom_headers", "{}")
-        if raw_custom:
-            custom_headers = json.loads(raw_custom)
-    except Exception:
-        pass
-
-    # Strictly raw text of daily report - no prefixes, no date, no extra lines
-    full_message = req.daily_report.strip()
-
-    user_prof = extract_user_profile()
-    sender_name = user_prof.get("name", "")
-
-    success, status_code, resp_text = False, 0, ""
-    if daily_url:
-        success, status_code, resp_text = await send_teams_message(
-            url=daily_url,
-            message=full_message,
-            auth_header_name=auth_header,
-            auth_token=auth_token,
-            custom_headers=custom_headers,
-            sender_name=sender_name
+    # If current time is strictly before the rounded end time, schedule the report!
+    if now_dt < target_dt:
+        updated_shift = await create_or_update_shift(
+            today,
+            status="completed",
+            end_time=now_time,
+            daily_report=req.daily_report.strip(),
+            report_status="scheduled",
+            report_scheduled_at=now_time
+        )
+        msg = f"Смена успешно завершена! Отчёт запланирован на отправку в {now_time[:5]}."
+        return EndShiftResponse(
+            success=True,
+            shift=ShiftSchema(**updated_shift),
+            message=msg,
+            teams_status_code=None,
+            teams_response=None
         )
 
-        # If 401 or 403, session might have been rotated by Microsoft; auto-refresh and retry once!
-        if status_code in [401, 403] and os.path.exists(PROFILE_DIR):
-            print(f"⚠️ Teams вернул {status_code}, выполняем автоматическое обновление токена и повторяем...")
-            auth_header, auth_token = await ensure_active_token(force_refresh=True)
-            success, status_code, resp_text = await send_teams_message(
-                url=daily_url,
-                message=full_message,
-                auth_header_name=auth_header,
-                auth_token=auth_token,
-                custom_headers=custom_headers,
-                sender_name=sender_name
-            )
-    else:
-        resp_text = "URL чата для отчётов не заполнен в настройках. Отчёт сохранён локально."
-
-    # Update database shift record with rounded end time (ceiling in user favor, e.g. 17:31 -> 18:00)
-    now_time = get_rounded_end_time()
+    # Otherwise (e.g. ended at 18:00:00 or later), send immediately
     updated_shift = await create_or_update_shift(
         today,
         status="completed",
         end_time=now_time,
         daily_report=req.daily_report.strip(),
-        raw_response_end=json.dumps({"status_code": status_code, "response": resp_text}, ensure_ascii=False)
+        report_status="sending",
+        report_scheduled_at=now_time
     )
+
+    success, status_code, resp_text = await execute_send_daily_report(today, force=True)
+    refreshed_shift = await get_shift_by_date(today)
 
     msg = "Смена успешно завершена! " + (
         "Отчёт отправлен в Teams." if success else
@@ -395,7 +492,36 @@ async def end_shift(req: EndShiftRequest):
 
     return EndShiftResponse(
         success=True,
-        shift=ShiftSchema(**updated_shift),
+        shift=ShiftSchema(**refreshed_shift),
+        message=msg,
+        teams_status_code=status_code,
+        teams_response=resp_text
+    )
+
+@app.post("/api/shifts/send-report-now", response_model=SendReportNowResponse)
+async def send_report_now():
+    today = get_today_str()
+    shift = await get_shift_by_date(today)
+
+    if not shift or shift.get("status") != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Смена на сегодня ещё не была завершена."
+        )
+
+    if not (shift.get("daily_report") or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Текст отчёта пуст."
+        )
+
+    success, status_code, resp_text = await execute_send_daily_report(today, force=True)
+    refreshed_shift = await get_shift_by_date(today)
+
+    msg = "Отчёт успешно отправлен в Teams!" if success else f"Ошибка отправки в Teams: {resp_text[:100]}"
+    return SendReportNowResponse(
+        success=success,
+        shift=ShiftSchema(**refreshed_shift),
         message=msg,
         teams_status_code=status_code,
         teams_response=resp_text
@@ -405,45 +531,6 @@ async def end_shift(req: EndShiftRequest):
 async def get_history(limit: int = 100):
     rows = await get_shift_history(limit=limit)
     return rows
-
-@app.put("/api/shifts/{date_str}", response_model=UpdateShiftResponse)
-async def update_shift_endpoint(date_str: str, req: UpdateShiftRequest):
-    shift = await get_shift_by_date(date_str)
-    
-    update_fields = {}
-    if req.start_time is not None:
-        val = req.start_time.strip()
-        if val and len(val.split(":")) == 2:
-            val += ":00"
-        update_fields["start_time"] = val if val else None
-        
-    if req.end_time is not None:
-        val = req.end_time.strip()
-        if val and len(val.split(":")) == 2:
-            val += ":00"
-        update_fields["end_time"] = val if val else None
-        
-    if req.daily_report is not None:
-        update_fields["daily_report"] = req.daily_report.strip()
-        
-    if req.status is not None:
-        update_fields["status"] = req.status.strip()
-    else:
-        curr_start = update_fields.get("start_time", (shift or {}).get("start_time"))
-        curr_end = update_fields.get("end_time", (shift or {}).get("end_time"))
-        if curr_start and curr_end:
-            update_fields["status"] = "completed"
-        elif curr_start:
-            update_fields["status"] = "in_progress"
-        else:
-            update_fields["status"] = (shift or {}).get("status", "not_started")
-
-    updated = await create_or_update_shift(date_str, **update_fields)
-    return UpdateShiftResponse(
-        success=True,
-        shift=ShiftSchema(**updated),
-        message=f"Данные за смену {date_str} успешно сохранены!"
-    )
 
 @app.delete("/api/shifts/{date_str}")
 async def delete_shift_endpoint(date_str: str):
@@ -555,7 +642,10 @@ async def reset_today_shift():
         status="not_started",
         daily_report="",
         start_time=None,
-        end_time=None
+        end_time=None,
+        report_status="not_scheduled",
+        report_scheduled_at=None,
+        report_sent_at=None
     )
     return {"success": True, "message": "Статус смены за сегодня успешно сброшен.", "shift": new_shift}
 
@@ -585,7 +675,7 @@ def _normalize_time_str(value: Optional[str]) -> Optional[str]:
 
 @app.put("/api/shifts/{date_str}", response_model=UpdateShiftResponse)
 async def update_shift_by_date(date_str: str, req: UpdateShiftRequest):
-    """Ручная правка смены (доделка: схемы UpdateShift* уже были, эндпоинта не было).
+    """Ручная правка смены.
     Позволяет исправить битую запись после сбоя часового пояса на VPS.
     Поддерживает duration_hours: end_time = start_time + duration."""
     try:
@@ -594,7 +684,7 @@ async def update_shift_by_date(date_str: str, req: UpdateShiftRequest):
         raise HTTPException(status_code=400, detail="Некорректная дата. Формат YYYY-MM-DD.")
     shift = await get_shift_by_date(date_str)
     if not shift:
-        raise HTTPException(status_code=404, detail=f"Смена за {date_str} не найдена.")
+        shift = {}
 
     fields: dict = {}
     start_norm = _normalize_time_str(req.start_time) if req.start_time is not None else None
@@ -633,6 +723,27 @@ async def update_shift_by_date(date_str: str, req: UpdateShiftRequest):
         if req.status not in ("not_started", "in_progress", "completed"):
             raise HTTPException(status_code=400, detail="Некорректный status.")
         fields["status"] = req.status
+        if req.status in ("not_started", "in_progress") and req.report_status is None:
+            fields["report_status"] = "not_scheduled"
+    elif not shift:
+        # Default status for newly created shift
+        if fields.get("start_time") and fields.get("end_time"):
+            fields["status"] = "completed"
+        elif fields.get("start_time"):
+            fields["status"] = "in_progress"
+        else:
+            fields["status"] = "not_started"
+
+    if req.report_status is not None:
+        if req.report_status not in ("not_scheduled", "scheduled", "sending", "sent", "failed"):
+            raise HTTPException(status_code=400, detail="Некорректный report_status.")
+        fields["report_status"] = req.report_status
+
+    if req.report_scheduled_at is not None:
+        fields["report_scheduled_at"] = _normalize_time_str(req.report_scheduled_at) if req.report_scheduled_at else None
+
+    if req.report_sent_at is not None:
+        fields["report_sent_at"] = _normalize_time_str(req.report_sent_at) if req.report_sent_at else None
 
     if not fields:
         raise HTTPException(status_code=400, detail="Нет полей для обновления.")

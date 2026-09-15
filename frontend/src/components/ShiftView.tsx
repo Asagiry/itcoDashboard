@@ -9,7 +9,8 @@ import {
   Check,
   Calendar,
   Building2,
-  Wallet
+  Wallet,
+  AlertCircle
 } from 'lucide-react';
 import { Shift, SalaryStats } from '../types';
 import { api } from '../api/client';
@@ -18,7 +19,9 @@ interface ShiftViewProps {
   shift: Shift | null;
   onStartShift: () => Promise<void>;
   onEndShift: (report: string) => Promise<void>;
+  onSendReportNow?: () => Promise<void>;
   onSaveDraft: (report: string) => Promise<void>;
+  onRefreshShift?: () => Promise<void>;
   onOpenSettings?: () => void;
   isLoading: boolean;
 }
@@ -27,7 +30,9 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
   shift,
   onStartShift,
   onEndShift,
+  onSendReportNow,
   onSaveDraft,
+  onRefreshShift,
   isLoading,
 }) => {
   const [reportText, setReportText] = useState('');
@@ -58,6 +63,16 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
     const clockTimer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(clockTimer);
   }, []);
+
+  // Live polling when shift report is scheduled to catch automatic completion
+  useEffect(() => {
+    if (shift?.status === 'completed' && shift?.report_status === 'scheduled') {
+      const pollTimer = setInterval(() => {
+        onRefreshShift?.();
+      }, 6000);
+      return () => clearInterval(pollTimer);
+    }
+  }, [shift?.status, shift?.report_status, onRefreshShift]);
 
   useEffect(() => {
     if (shift?.status === 'in_progress' && shift.start_time) {
@@ -225,7 +240,19 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
                 Смена активна
               </span>
             )}
-            {isShiftCompleted && (
+            {isShiftCompleted && shift?.report_status === 'scheduled' && (
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                Смена завершена (отчёт в {shift.report_scheduled_at ? shift.report_scheduled_at.slice(0, 5) : '18:00'})
+              </span>
+            )}
+            {isShiftCompleted && shift?.report_status === 'failed' && (
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                Ошибка отправки отчёта
+              </span>
+            )}
+            {isShiftCompleted && (shift?.report_status === 'sent' || shift?.report_status === 'not_scheduled' || !shift?.report_status) && (
               <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                 <CheckCircle2 className="w-4 h-4 text-blue-600" />
                 Смена завершена
@@ -435,6 +462,8 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
               placeholder={
                 isShiftNotStarted
                   ? "Нажмите «Я на смене», чтобы начать рабочий день..."
+                  : isShiftCompleted && shift?.report_status === 'scheduled'
+                  ? "Смена завершена. Отчёт зафиксирован и будет отправлен в Teams автоматически в " + (shift.report_scheduled_at || "18:00:00") + "."
                   : isShiftCompleted
                   ? "Смена за сегодня завершена."
                   : "OnayTap\nMBA-378 3h\nMBA-379 3h\n..."
@@ -454,33 +483,73 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
           </div>
 
           <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 shrink-0">
-            <div className="text-xs text-slate-500">
-              {isShiftCompleted && 'Смена за сегодня закрыта'}
+            <div className="text-xs text-slate-500 flex items-center gap-2">
+              {isShiftCompleted && shift?.report_status === 'scheduled' && (
+                <div className="flex items-center gap-2 text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200/80 text-xs font-medium">
+                  <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Отчёт будет отправлен в Teams в <strong className="font-semibold">{shift.report_scheduled_at || '18:00:00'}</strong></span>
+                </div>
+              )}
+              {isShiftCompleted && shift?.report_status === 'sent' && (
+                <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 text-xs font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Отчёт отправлен в Teams {shift.report_sent_at ? `в ${shift.report_sent_at}` : ''}</span>
+                </div>
+              )}
+              {isShiftCompleted && shift?.report_status === 'failed' && (
+                <div className="flex items-center gap-2 text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 text-xs font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>Не удалось отправить отчёт в Teams</span>
+                </div>
+              )}
+              {isShiftCompleted && (shift?.report_status === 'not_scheduled' || !shift?.report_status) && (
+                <span>Смена за сегодня закрыта</span>
+              )}
             </div>
 
-            <button
-              onClick={() => onEndShift(reportText)}
-              disabled={!isShiftInProgress || isLoading || !reportText.trim()}
-              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-xs transition-all shadow-xs shrink-0 ${
-                isShiftCompleted
-                  ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                  : isShiftInProgress && reportText.trim()
-                  ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-xs active:scale-[0.98] cursor-pointer'
-                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              {isShiftCompleted ? (
-                <>
-                  <Lock className="w-4 h-4" />
+            <div className="flex items-center gap-2 shrink-0">
+              {isShiftCompleted && shift?.report_status === 'scheduled' && onSendReportNow && (
+                <button
+                  onClick={onSendReportNow}
+                  disabled={isLoading}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-xs bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-xs active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                  title="Отправить отчёт в Teams прямо сейчас, не дожидаясь наступления 18:00"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isLoading ? 'Отправка...' : 'Отправить сейчас'}</span>
+                </button>
+              )}
+              {isShiftCompleted && shift?.report_status === 'failed' && onSendReportNow && (
+                <button
+                  onClick={onSendReportNow}
+                  disabled={isLoading}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-xs active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isLoading ? 'Отправка...' : 'Повторить отправку'}</span>
+                </button>
+              )}
+              {isShiftCompleted && (shift?.report_status === 'sent' || shift?.report_status === 'not_scheduled' || !shift?.report_status) && (
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-500 font-semibold text-xs border border-slate-200">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
                   <span>Смена закрыта</span>
-                </>
-              ) : (
-                <>
+                </div>
+              )}
+              {isShiftInProgress && (
+                <button
+                  onClick={() => onEndShift(reportText)}
+                  disabled={isLoading || !reportText.trim()}
+                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-xs transition-all shadow-xs shrink-0 ${
+                    reportText.trim()
+                      ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-xs active:scale-[0.98] cursor-pointer'
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
                   <Send className="w-4 h-4" />
                   <span>{isLoading ? 'Отправка...' : 'Завершить смену'}</span>
-                </>
+                </button>
               )}
-            </button>
+            </div>
           </div>
         </div>
       </div>
