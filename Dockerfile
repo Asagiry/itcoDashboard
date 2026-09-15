@@ -14,24 +14,22 @@ RUN npm install --omit=dev
 FROM python:3.12-slim
 WORKDIR /app
 
-# Install system utilities + tzdata for correct Europe/Moscow time on VPS (UTC host)
+# Install system utilities + tzdata + Chromium for Teams headless auth
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     tzdata \
+    chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js runtime for Huly bridge
 COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
 
-# Install python dependencies
+# Install python dependencies (skip playwright browser download since system chromium is installed)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/backend/requirements.txt
 
-# Headless Chromium для входа Teams по коду и фонового обновления токена на VPS
-# (cdn.playwright.dev из РФ часто недоступен — качаем через зеркало)
-ENV PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
-RUN python -m playwright install --with-deps chromium
 
 # Copy application files
 COPY run.py /app/run.py
