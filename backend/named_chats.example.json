@@ -1,0 +1,14 @@
+[
+  {
+    "id": "19:example_clock_thread@thread.skype",
+    "title": "Рабочий чат (утренний)",
+    "url": "https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/19%3Aexample_clock_thread%40thread.skype/messages",
+    "preview": "Здравствуйте, я на рабочем месте"
+  },
+  {
+    "id": "19:example_daily_thread@thread.skype",
+    "title": "Daily отчёты",
+    "url": "https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/19%3Aexample_daily_thread%40thread.skype/messages",
+    "preview": "Дейли отчёты команды"
+  }
+]

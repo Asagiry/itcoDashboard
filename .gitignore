@@ -8,6 +8,9 @@ env/
 venv/
 .venv/
 backend/libs/
+.pytest_cache/
+coverage/
+.coverage
 
 # Database & Sensitive Data (Keep secrets and local DB private!)
 backend/dashboard.db*
@@ -15,21 +18,45 @@ backend/browser_data/
 backend/email_login_shots/
 backend/last_token.txt
 backend/teams_chats_cache.json
+backend/sample_convs.json
+backend/named_chats.json
 data/
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
 
-# Dependencies
+# Environment Variables & Keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+id_rsa*
+id_ed25519*
+
+# Build artifacts & Frontend dependencies
 node_modules/
 frontend/node_modules/
+frontend/dist/
+dist/
+.vite/
+frontend/.vite/
+
+# Playwright & Testing artifacts
+.playwright/
+test-results/
+playwright-report/
 
 # Archives & Temporary files
 *.tar.gz
 *.zip
 *.log
+*.tmp
 .DS_Store
+Thumbs.db
+Desktop.ini
 
 # IDE
 .idea/

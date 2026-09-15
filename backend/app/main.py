@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -92,10 +92,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ITCO Work Shift & Teams Dashboard", lifespan=lifespan)
 
-# Allow CORS for local Vite dev server
+# Allow CORS for local Vite dev server and local clients
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -158,7 +158,11 @@ APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/Moscow")
 try:
     MOSCOW_TZ = ZoneInfo(APP_TIMEZONE)
 except Exception:
-    MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+    try:
+        MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+    except Exception:
+        # Fallback for Windows or environments without IANA tzdata package
+        MOSCOW_TZ = timezone(timedelta(hours=3))
 
 def get_now_dt() -> datetime:
     return datetime.now(MOSCOW_TZ)

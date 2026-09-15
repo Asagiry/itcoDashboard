@@ -5,4 +5,5 @@ aiosqlite>=0.22.0
 pydantic>=2.10.0
 python-multipart>=0.0.30
 playwright>=1.40.0
-
+python-dotenv>=1.0.0
+tzdata>=2024.1

@@ -21,20 +21,11 @@ from .teams_client import decode_token_info
 PROFILE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "browser_data"))
 CHATS_CACHE_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "teams_chats_cache.json"))
 NAMED_CHATS_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "named_chats.json"))
+NAMED_CHATS_EXAMPLE_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "named_chats.example.json"))
 
 KNOWN_CHAT_NAMES = {
     "19:53563ee0e21748c1834f311533c7ab5a@thread.skype": "IT Co. Часы",
     "19:aebc4f4bb3f746ce82fc6678d4f36fee@thread.skype": "IT Co. Daily",
-    "19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2": "Nikolay Veselov",
-    "19:uni01_fneurtzg7jt3vcqszkpwwdbwxomimmbszc6yiujbuhm7xvbu2daq@thread.v2": "Daria Korchagina",
-    "19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2": "Полина Русских",
-    "19:uni01_cdf4yfrjgzercax55vdopdbvnn4skwnfvekn7x5tvlroejdxcvdq@thread.v2": "Valeriya Kuryanova",
-    "19:uni01_wfntmsefhbdi6v7sw7hxtm3hgofsumczzle2xaqhwtjp4msoerpa@thread.v2": "Олег Герт",
-    "19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2": "Ivan Blinov",
-    "19:uni01_w4nvvowtpehhj2fchcpoiwask6znpg3rrins2255pkbukwuegozq@thread.v2": "Анатолий Прохоревич",
-    "19:uni01_v44ytorzlv4qo4s5gr5ve5cmgtqzdzwckfazp7g5buyn4hbaytqq@thread.v2": "Elizaveta Alferieva",
-    "19:uni01_sk66agvqyfefip34jonzmhdodwvk3o7e6juun5dz7zw76ak56bza@thread.v2": "Alexey Kruglikov",
-    "19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2": "Sergey Volkov",
 }
 
 _browser_profile_lock = asyncio.Lock()
@@ -289,11 +280,12 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
         except Exception:
             pass
 
-    # Build known names map from KNOWN_CHAT_NAMES and named_chats.json
+    # Build known names map from KNOWN_CHAT_NAMES and named_chats.json (or example)
     known_names: Dict[str, str] = dict(KNOWN_CHAT_NAMES)
-    if os.path.exists(NAMED_CHATS_FILE):
+    chats_file = NAMED_CHATS_FILE if os.path.exists(NAMED_CHATS_FILE) else (NAMED_CHATS_EXAMPLE_FILE if os.path.exists(NAMED_CHATS_EXAMPLE_FILE) else None)
+    if chats_file:
         try:
-            with open(NAMED_CHATS_FILE, "r", encoding="utf-8") as f:
+            with open(chats_file, "r", encoding="utf-8") as f:
                 for item in json.load(f):
                     iid = item.get("id")
                     ititle = item.get("title")
@@ -308,9 +300,9 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
         auth_header_name = settings.get("auth_header_name", "Authentication")
 
     if not auth_token:
-        if os.path.exists(NAMED_CHATS_FILE):
+        if chats_file:
             try:
-                with open(NAMED_CHATS_FILE, "r", encoding="utf-8") as f:
+                with open(chats_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
                 pass
