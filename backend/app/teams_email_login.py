@@ -35,6 +35,7 @@ from .browser_auth import (
     cleanup_browser_profile_locks,
     get_chrome_executable_path,
     extract_chats_from_page,
+    extract_token_from_storage,
     set_email_login_active,
 )
 
@@ -46,7 +47,13 @@ _sessions: Dict[str, Dict[str, Any]] = {}
 
 def _launch_kwargs() -> Dict[str, Any]:
     chrome_exe = get_chrome_executable_path()
-    args = ["--no-proxy-server", "--no-first-run", "--no-default-browser-check"]
+    args = [
+        "--no-proxy-server",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-blink-features=AutomationControlled",
+        "--window-size=1280,800",
+    ]
     try:
         # В Docker-контейнере работаем от root — без этих флагов Chromium не стартует
         if os.geteuid() == 0:
@@ -57,6 +64,11 @@ def _launch_kwargs() -> Dict[str, Any]:
         "user_data_dir": PROFILE_DIR,
         "headless": True,
         "args": args,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+        "viewport": {"width": 1280, "height": 800},
+        "locale": "ru-RU",
+        "timezone_id": "Europe/Moscow",
+        "ignore_default_args": ["--enable-automation"],
     }
     # На машине может не быть системного Chrome (VPS, чистый Windows) —
     # тогда Playwright использует свой bundled Chromium, channel НЕ задаем
@@ -64,6 +76,7 @@ def _launch_kwargs() -> Dict[str, Any]:
     if chrome_exe:
         kwargs["executable_path"] = chrome_exe
     return kwargs
+
 
 
 async def _shot(session: Dict[str, Any], name: str) -> Optional[str]:
@@ -228,6 +241,10 @@ async def start_email_login(email: str) -> Dict[str, Any]:
             session["playwright"] = pw
             context = await pw.chromium.launch_persistent_context(**_launch_kwargs())
             session["context"] = context
+            await context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                window.chrome = { runtime: {} };
+            """)
 
             def on_request(request):
                 try:
@@ -250,6 +267,10 @@ async def start_email_login(email: str) -> Dict[str, Any]:
             # Если в профиле уже живая сессия — токен поймается сам (ждем до 8 сек)
             await page.goto("https://teams.live.com/v2/", wait_until="domcontentloaded")
             await _tf_to_awaitable(session)
+            if not session["extracted"]["token"]:
+                tok = await extract_token_from_storage(page)
+                if tok:
+                    session["extracted"] = tok
             if session["extracted"]["token"]:
                 return await _finish_success(session, "Сессия уже активна, новый код не понадобился.")
 
@@ -262,7 +283,7 @@ async def start_email_login(email: str) -> Dict[str, Any]:
             except Exception:
                 pass
             if not on_login:
-                await _click_button_like(page, "отклонить", "reject", "необязательные")
+                await _click_button_like(page, "отклонить", "reject", "принять", "accept", "необязательные")
                 await _click_button_like(page, "sign in", "войти", "log in")
                 try:
                     await page.wait_for_url("**/login.live.com/**", timeout=30000)
@@ -279,7 +300,7 @@ async def start_email_login(email: str) -> Dict[str, Any]:
             await page.wait_for_timeout(1500)
             # Ввод e-mail (селектор зависит от ревизии страницы login.live.com)
             email_input = None
-            for sel in ['input[name="loginfmt"]', '#usernameEntry',
+            for sel in ['input[name="loginfmt"]', '#usernameEntry', '#i0116',
                         'input[type="email"]', 'input[type="text"]']:
                 try:
                     el = await page.query_selector(sel)
@@ -293,14 +314,15 @@ async def start_email_login(email: str) -> Dict[str, Any]:
                 await _shot(session, "unknown_stage")
                 desc = await _describe_page(page)
                 session["status"] = "need_check"
+                opts = desc.get("buttons", []) + desc.get("tiles", [])
                 return {"success": True, "session_id": sid, "stage": "unknown",
                         "message": "Страница входа в неожиданном состоянии, нужен взгляд.",
-                        "page": desc}
+                        "options": opts[:12], "page": desc}
             await email_input.fill(email)
             await _check_remember_me(page)
             await _shot(session, "email_filled")
             # Далее
-            clicked = await _click_button_like(page, "далее", "next", "продолжить")
+            clicked = await _click_button_like(page, "далее", "next", "продолжить", "войти")
             if not clicked:
                 try:
                     await page.keyboard.press("Enter")
@@ -310,14 +332,43 @@ async def start_email_login(email: str) -> Dict[str, Any]:
             await _shot(session, "after_email")
             desc = await _describe_page(page)
 
+            # Проверяем, не появилось ли поле подтверждения email (proofConfirmationText)
+            for p_sel in ['#proofConfirmationText', 'input[name="proofConfirmation"]', 'input[name="otc_proof"]']:
+                try:
+                    p_el = await page.query_selector(p_sel)
+                    if p_el and await p_el.is_visible():
+                        await p_el.fill(email)
+                        await _click_button_like(page, "далее", "next", "отправить", "send")
+                        await page.wait_for_timeout(2500)
+                        break
+                except Exception:
+                    pass
+
+            # Если открылся ввод пароля — пробуем переключиться на код на почту
+            try:
+                pwd = await page.query_selector('input[type="password"]')
+                if pwd and await pwd.is_visible():
+                    await _click_button_like(
+                        page,
+                        "одноразовый код", "код по электронной почте", "отправить код",
+                        "другие способы", "other ways", "use a code", "email a code",
+                        "sign in with a code"
+                    )
+                    await page.wait_for_timeout(2500)
+            except Exception:
+                pass
+
             # Если уже поле кода — отлично, иначе ищем кнопку "отправить код"
-            if not _page_has_code_input(desc):
+            has_code = _page_has_code_input(desc) or await _page_has_code_input_async(page)
+            if not has_code:
                 sent = await _click_button_like(
                     page, "отправить код", "send code", "получить код", "код",
-                    "отправить", "текст", "email")
+                    "отправить", "текст", "email", "письмо")
                 await page.wait_for_timeout(2500)
                 await _shot(session, "after_send_code")
                 desc = await _describe_page(page)
+                has_code = _page_has_code_input(desc) or await _page_has_code_input_async(page)
+
             if _page_is_limited(desc):
                 # Microsoft временно режет отправку кодов (наш лимит исчерпан
                 # несколькими запросами подряд). Код НЕ отправлен.
@@ -333,12 +384,15 @@ async def start_email_login(email: str) -> Dict[str, Any]:
                                     "(слишком частые запросы). Подождите 30–60 минут и нажмите "
                                     "«Отправить код» один раз. Либо выберите другой способ ниже."),
                         "options": opts[:12], "page": desc}
-            session["status"] = "code_sent" if _page_has_code_input(desc) else "need_check"
+
+            session["status"] = "code_sent" if has_code else "need_check"
             await _check_remember_me(page)
+            opts = desc.get("buttons", []) + desc.get("tiles", [])
             return {"success": True, "session_id": sid, "stage": session["status"],
                     "message": ("Код отправлен на почту. Введите его в дашборде."
                                 if session["status"] == "code_sent"
-                                else "Проверьте страницу входа (скриншот)."),
+                                else "Microsoft ожидает подтверждения или выбора действия. Введите код, если получили, либо выберите вариант ниже."),
+                    "options": opts[:12],
                     "page": desc}
         except Exception as e:
             await _close_session_browser(session)
@@ -361,7 +415,7 @@ def _page_has_code_input(desc: Dict[str, Any]) -> bool:
         iid = (i.get("id") or "").lower()
         ph = (i.get("placeholder") or "").lower()
         tp = (i.get("type") or "").lower()
-        if iid.startswith("code") or nm in ("otc", "code", "otp", "securitycode"):
+        if iid.startswith("code") or nm in ("otc", "code", "otp", "securitycode", "proofcode") or "otc" in iid or "otc" in nm:
             return True
         if "код" in ph or "code" in ph or "one-time" in ph:
             return True
@@ -371,6 +425,21 @@ def _page_has_code_input(desc: Dict[str, Any]) -> bool:
         bl = b.lower()
         if "ввести код" in bl or "enter code" in bl or "проверить код" in bl or "verify" in bl:
             return True
+    return False
+
+
+async def _page_has_code_input_async(page) -> bool:
+    for sel in [
+        "#codeEntry-0", "#idTxtBx_OTC_Password",
+        'input[name="otc"]', 'input[name="code"]', 'input[name="otp"]',
+        'input[name="ProofCode"]', 'input[name="securitycode"]'
+    ]:
+        try:
+            el = await page.query_selector(sel)
+            if el and await el.is_visible():
+                return True
+        except Exception:
+            pass
     return False
 
 
@@ -387,86 +456,126 @@ async def submit_email_code(session_id: str, code: str, remember_me: bool = True
 
     async with _browser_profile_lock:
         try:
-            # Вариант А: 6 отдельных окошек codeEntry-0..5 (новый UI login.live.com)
             filled = False
-            boxes = []
-            for idx in range(10):
+            # Вариант А: 6 отдельных окошек codeEntry-0..5 (современный UI Microsoft)
+            first_box = await page.query_selector("#codeEntry-0")
+            if first_box and await first_box.is_visible():
                 try:
-                    el = await page.query_selector(f"#codeEntry-{idx}")
-                    if el and await el.is_visible():
-                        boxes.append(el)
+                    await first_box.click()
+                    await page.keyboard.type(code, delay=80)
+                    filled = True
                 except Exception:
-                    break
-            if boxes and len(code) >= len(boxes):
-                for el, ch in zip(boxes, code):
+                    pass
+
+                # Страховка: если автопереход не сработал для всех окошек
+                for idx in range(min(len(code), 6)):
                     try:
-                        await el.fill(ch)
+                        box = await page.query_selector(f"#codeEntry-{idx}")
+                        if box:
+                            val = await box.input_value()
+                            if not val:
+                                await box.fill(code[idx])
                     except Exception:
                         pass
-                filled = True
-            # Вариант Б: одно поле кода
+
+            # Вариант Б: одиночное поле кода
             if not filled:
-                for sel in ['input[name="otc"]', 'input[name="code"]', 'input[name="otp"]',
-                            'input[type="tel"]', 'input[type="text"]', 'input[type="number"]']:
+                for sel in [
+                    '#idTxtBx_OTC_Password', 'input[name="ProofCode"]', 'input[name="otc"]',
+                    'input[name="code"]', 'input[name="otp"]', 'input[name="securitycode"]',
+                    'input[type="tel"]', 'input[type="text"]', 'input[type="number"]'
+                ]:
                     try:
                         el = await page.query_selector(sel)
                         if el and await el.is_visible():
+                            await el.click()
                             await el.fill(code)
                             filled = True
                             break
                     except Exception:
                         continue
+
             if not filled:
+                await _shot(session, "code_input_not_found")
+                desc = await _describe_page(page)
                 return {"success": False, "session_id": session_id,
-                        "message": "Не нашел поле ввода кода на странице. Пришлите скриншот."}
+                        "message": "Не найдено поле для ввода кода на странице. Проверьте снимок экрана.",
+                        "page": desc}
+
             if remember_me:
                 await _check_remember_me(page)
+
             await _shot(session, "code_filled")
             clicked = await _click_button_like(page, "войти", "проверить", "verify", "sign in",
-                                               "далее", "next", "продолжить", "отправить", "submit")
+                                               "далее", "next", "продолжить", "отправить", "submit", "#idSIButton9")
             if not clicked:
                 try:
                     await page.keyboard.press("Enter")
                 except Exception:
                     pass
+
             await page.wait_for_timeout(3000)
             await _shot(session, "after_code")
             desc = await _describe_page(page)
 
-            # "Остаться в системе?" (KMSI) — жмем Да / Yes
+            # "Остаться в системе?" (KMSI) — жмем Да / Yes, предварительно отметив чекбокс
             if any(k in (b.lower()) for b in desc.get("buttons", []) for k in ("остаться", "stay signed", "да", "yes")):
-                await _click_button_like(page, "да", "yes", "остаться в системе", "stay signed")
+                for chk_sel in ['#KmsiCheckboxField', 'input[name="DontShowAgain"]', 'input[type="checkbox"]']:
+                    try:
+                        chk = await page.query_selector(chk_sel)
+                        if chk and await chk.is_visible() and not await chk.is_checked():
+                            await chk.check()
+                    except Exception:
+                        pass
+                await _click_button_like(page, "да", "yes", "остаться в системе", "stay signed", "#idSIButton9")
                 await page.wait_for_timeout(3000)
                 await _shot(session, "after_kmsi")
 
-            # Ждем либо редирект в Teams, либо пойманный токен
-            try:
-                await asyncio.wait_for(asyncio.shield(session["token_future"]), timeout=60)
-            except Exception:
-                pass
+            # Ждем токен (сетевой перехват + проверка storage каждые 2 сек)
+            for _ in range(15):
+                if session["extracted"]["token"]:
+                    break
+                tok = await extract_token_from_storage(page)
+                if tok:
+                    session["extracted"] = tok
+                    break
+                try:
+                    await asyncio.wait_for(asyncio.shield(session["token_future"]), timeout=2.0)
+                    if session["extracted"]["token"]:
+                        break
+                except asyncio.TimeoutError:
+                    pass
+
             if session["extracted"]["token"]:
                 return await _finish_success(session, "Вход выполнен! Токен сохранен.")
-            # токена в сети не было — может уже в Teams? проверяем url
+
+            # Если мы уже на teams.live.com, подождем еще немного
             try:
                 cur = page.url
             except Exception:
                 cur = ""
             if "teams.live.com" in cur and "login.live.com" not in cur:
-                # страница Teams, но запросы со skypetoken не пролетели — подождем еще
-                try:
-                    await asyncio.wait_for(asyncio.shield(session["token_future"]), timeout=30)
-                except Exception:
-                    pass
-                if session["extracted"]["token"]:
-                    return await _finish_success(session, "Вход выполнен! Токен сохранен.")
+                for _ in range(10):
+                    tok = await extract_token_from_storage(page)
+                    if tok:
+                        session["extracted"] = tok
+                        return await _finish_success(session, "Вход выполнен! Токен сохранен.")
+                    try:
+                        await asyncio.wait_for(asyncio.shield(session["token_future"]), timeout=2.0)
+                        if session["extracted"]["token"]:
+                            return await _finish_success(session, "Вход выполнен! Токен сохранен.")
+                    except asyncio.TimeoutError:
+                        pass
+
             await _shot(session, "need_attention")
             desc = await _describe_page(page)
             session["status"] = "need_check"
             return {"success": False, "session_id": session_id,
-                    "message": "Код не принят или нужен дополнительный шаг. Смотрите скриншот/страницу.",
+                    "message": "Код не принят или нужен дополнительный шаг. Смотрите снимок экрана.",
                     "page": desc}
         except Exception as e:
             return {"success": False, "session_id": session_id, "message": f"Ошибка при вводе кода: {e}"}
+
 
 
 async def _finish_success(session: Dict[str, Any], message: str) -> Dict[str, Any]:

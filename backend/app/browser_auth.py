@@ -75,9 +75,12 @@ def get_chrome_executable_path() -> Optional[str]:
 
 def cleanup_browser_profile_locks():
     """
-    Cleans up any dangling Chrome processes and stale Chromium Singleton lock files
-    (SingletonLock, SingletonSocket, SingletonCookie) to prevent ProcessSingleton errors.
+    Cleans up Chrome profile lock files and any lingering Chrome processes
+    using this profile dir (especially in Docker/VPS where kills can leave orphan locks).
     """
+    if is_email_login_active():
+        return
+
     if sys.platform != "win32":
         try:
             res = subprocess.run(
@@ -104,6 +107,41 @@ def cleanup_browser_profile_locks():
                 os.unlink(fpath)
         except Exception:
             pass
+
+
+async def extract_token_from_storage(page) -> Optional[Dict[str, str]]:
+    """Извлекает skypetoken напрямую из sessionStorage/localStorage Teams Web."""
+    try:
+        token_data = await page.evaluate("""() => {
+            function checkStr(v) {
+                if (!v || typeof v !== 'string') return null;
+                if (v.includes("skypetoken=")) return v;
+                if (v.startsWith("eyJ") && v.length > 200) {
+                    try {
+                        const p = JSON.parse(atob(v.split('.')[1]));
+                        if (p.skypeid || p.cid) return "skypetoken=" + v;
+                    } catch {}
+                }
+                return null;
+            }
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const res = checkStr(sessionStorage.getItem(sessionStorage.key(i)));
+                if (res) return res;
+            }
+            for (let i = 0; i < localStorage.length; i++) {
+                const res = checkStr(localStorage.getItem(localStorage.key(i)));
+                if (res) return res;
+            }
+            return null;
+        }""")
+        if token_data:
+            tok = token_data.strip()
+            if not tok.startswith("skypetoken=") and not tok.startswith("Bearer "):
+                tok = "skypetoken=" + tok
+            return {"token": tok, "header": "Authentication"}
+    except Exception:
+        pass
+    return None
 
 
 def extract_user_profile(profile_dir: str = PROFILE_DIR) -> Dict[str, str]:
@@ -378,9 +416,12 @@ async def run_browser_login(timeout_seconds: int = 120) -> Dict[str, Any]:
 async def run_headless_refresh() -> Dict[str, Any]:
     """
     Runs background headless Chrome using saved profile to auto-refresh skypetoken and chat cache.
-    Uses --no-proxy-server to prevent proxy failures.
+    Uses stealth arguments and storage extraction fallback.
     """
     from playwright.async_api import async_playwright
+
+    if is_email_login_active():
+        return {"success": False, "message": "Идет интерактивный вход по почте, фоновое обновление отложено."}
 
     if not os.path.exists(PROFILE_DIR):
         return {"success": False, "message": "Профиль браузера не найден. На VPS используйте импорт cURL с локального ПК (Настройки → Авторизация → Импорт cURL)."}
@@ -394,39 +435,73 @@ async def run_headless_refresh() -> Dict[str, Any]:
         try:
             async with async_playwright() as p:
                 chrome_exe = get_chrome_executable_path()
+                args = [
+                    "--no-proxy-server",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-blink-features=AutomationControlled",
+                    "--window-size=1280,800",
+                ] + container_chrome_args()
+
                 launch_kwargs: Dict[str, Any] = {
                     "user_data_dir": PROFILE_DIR,
                     "headless": True,
-                    "args": ["--no-proxy-server", "--no-first-run", "--no-default-browser-check"] + container_chrome_args()
+                    "args": args,
+                    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+                    "viewport": {"width": 1280, "height": 800},
+                    "locale": "ru-RU",
+                    "timezone_id": "Europe/Moscow",
+                    "ignore_default_args": ["--enable-automation"],
                 }
                 if chrome_exe:
                     launch_kwargs["executable_path"] = chrome_exe
-                # else: bundled Chromium от Playwright (channel="chrome" требовал
-                # системный Chrome и падал там, где его нет — VPS, чистый Windows)
 
                 context = await p.chromium.launch_persistent_context(**launch_kwargs)
+                await context.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                    window.chrome = { runtime: {} };
+                """)
 
                 def on_request(request):
-                    for h_name, h_val in request.headers.items():
-                        if "skypetoken=" in h_val:
-                            if not token_future.done():
-                                extracted["token"] = h_val
-                                extracted["header"] = h_name
-                                token_future.set_result(True)
-                        elif h_name.lower() == "x-skypetoken":
-                            if not token_future.done():
-                                extracted["token"] = "skypetoken=" + h_val.strip()
-                                extracted["header"] = "Authentication"
-                                token_future.set_result(True)
+                    try:
+                        for h_name, h_val in request.headers.items():
+                            if "skypetoken=" in h_val:
+                                if not token_future.done():
+                                    extracted["token"] = h_val
+                                    extracted["header"] = h_name
+                                    token_future.set_result(True)
+                            elif h_name.lower() == "x-skypetoken":
+                                if not token_future.done():
+                                    extracted["token"] = "skypetoken=" + h_val.strip()
+                                    extracted["header"] = "Authentication"
+                                    token_future.set_result(True)
+                    except Exception:
+                        pass
 
                 context.on("request", on_request)
 
                 page = context.pages[0] if context.pages else await context.new_page()
                 await page.goto("https://teams.live.com/v2/", wait_until="domcontentloaded")
 
-                await asyncio.wait_for(token_future, timeout=25)
+                # Ожидаем токен: слушаем сеть и проверяем sessionStorage/localStorage
+                for _ in range(15):
+                    if extracted["token"]:
+                        break
+                    tok = await extract_token_from_storage(page)
+                    if tok:
+                        extracted = tok
+                        break
+                    try:
+                        await asyncio.wait_for(asyncio.shield(token_future), timeout=2.0)
+                        if extracted["token"]:
+                            break
+                    except asyncio.TimeoutError:
+                        pass
+
                 token = extracted["token"]
                 header = extracted["header"]
+                if not token:
+                    return {"success": False, "message": "Сессия Teams в профиле устарела (требуется повторный вход по почте или импорт cURL)."}
 
                 await save_settings({
                     "auth_token": token,
@@ -445,6 +520,8 @@ async def run_headless_refresh() -> Dict[str, Any]:
                     "message": "Сессия Teams успешно обновлена в фоновом режиме!",
                     "token_info": info
                 }
+        except asyncio.TimeoutError:
+            return {"success": False, "message": "Время ожидания ответа Teams истекло (30с). Сессия Teams в профиле устарела — выполните вход заново."}
         except Exception as e:
             msg = str(e)
             if "Executable doesn't exist" in msg or "executable" in msg.lower():
@@ -457,6 +534,7 @@ async def run_headless_refresh() -> Dict[str, Any]:
                 except Exception:
                     pass
             cleanup_browser_profile_locks()
+
 
 async def ensure_active_token(force_refresh: bool = False) -> Tuple[str, str]:
     """

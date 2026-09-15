@@ -124,6 +124,12 @@ export const api = {
       body: JSON.stringify({ session_id }),
     }),
 
+  teamsEmailClick: (session_id: string, texts: string[]): Promise<{ success: boolean; message: string; page?: any; token_info?: any }> =>
+    fetchJson(`${API_BASE}/auth/teams-email/click`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id, texts }),
+    }),
+
   updateShift: (date: string, payload: { start_time?: string; end_time?: string; duration_hours?: number; daily_report?: string; status?: string }): Promise<{ success: boolean; message: string; shift: Shift }> =>
     fetchJson(`${API_BASE}/shifts/${date}`, {
       method: 'PUT',

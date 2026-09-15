@@ -57,6 +57,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [emailStage, setEmailStage] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [isEmailBusy, setIsEmailBusy] = useState(false);
+  const [emailOptions, setEmailOptions] = useState<string[]>([]);
+  const [showShot, setShowShot] = useState(false);
+  const [shotKey, setShotKey] = useState(Date.now());
 
   // Search & Picker states for the two chat types
   const [activePicker, setActivePicker] = useState<'director' | 'daily' | null>(null);
@@ -199,24 +202,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     showToast('info', 'Открываем вход Microsoft', 'Ждём страницу и отправляем код на почту (до ~1 мин)...');
     try {
       const res = await api.teamsEmailStart(emailAddr.trim());
-      if (res.success && res.session_id && res.stage === 'code_sent') {
+      if (res.session_id) {
         setEmailSid(res.session_id);
         setEmailStage(res.stage || null);
-        showToast('success', 'Код отправлен', 'Проверьте почту и введите 6 цифр ниже.');
-      } else if (res.success && res.session_id) {
-        setEmailSid(res.session_id);
-        setEmailStage(res.stage || null);
-        showToast('info', 'Требуется внимание', (res as any).message || 'Проверьте стадию входа.');
+        setEmailOptions((res as any).options || []);
+        setShotKey(Date.now());
+        if (res.stage === 'code_sent') {
+          showToast('success', 'Код отправлен', 'Проверьте почту и введите 6 цифр ниже.');
+        } else {
+          showToast('info', 'Требуется внимание', (res as any).message || 'Проверьте стадию входа.');
+        }
       } else if (res.success) {
         showToast('success', 'Уже вошли', res.message);
         const fresh = await api.getSettings();
         setSettings(fresh);
         onSettingsSaved();
+        loadChats();
       } else {
         showToast('error', (res as any).stage === 'limited' ? 'Лимит Microsoft' : 'Не удалось начать вход', res.message);
       }
     } catch (err: any) {
       showToast('error', 'Ошибка входа по почте', err.message);
+    } finally {
+      setIsEmailBusy(false);
+    }
+  };
+
+  const handleEmailClick = async (text: string) => {
+    if (!emailSid) return;
+    setIsEmailBusy(true);
+    try {
+      const res = await api.teamsEmailClick(emailSid, [text]);
+      setShotKey(Date.now());
+      if (res.token_info || ((res as any).success && (res as any).message?.includes('сохранен'))) {
+        showToast('success', 'Вход выполнен', res.message);
+        setEmailSid(null);
+        setEmailStage(null);
+        setEmailOptions([]);
+        const fresh = await api.getSettings();
+        setSettings(fresh);
+        onSettingsSaved();
+        loadChats();
+      } else {
+        const opts = (res.page?.buttons || []).concat(res.page?.tiles || []);
+        setEmailOptions(opts.slice(0, 12));
+        showToast('info', 'Действие выполнено', res.message);
+      }
+    } catch (err: any) {
+      showToast('error', 'Ошибка клика', err.message);
     } finally {
       setIsEmailBusy(false);
     }
@@ -234,13 +267,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         showToast('success', 'Вход выполнен', res.message);
         setEmailSid(null);
         setEmailStage(null);
+        setEmailOptions([]);
         setCodeInput('');
+        setShowShot(false);
         const fresh = await api.getSettings();
         setSettings(fresh);
         onSettingsSaved();
         loadChats();
       } else {
         showToast('error', 'Код не принят', res.message);
+        setShotKey(Date.now());
       }
     } catch (err: any) {
       showToast('error', 'Ошибка проверки кода', err.message);
@@ -256,7 +292,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch {}
     setEmailSid(null);
     setEmailStage(null);
+    setEmailOptions([]);
     setCodeInput('');
+    setShowShot(false);
   };
 
   const findChatByUrl = (url: string) => {
@@ -734,12 +772,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <span>{isEmailBusy ? 'Ждём Microsoft...' : 'Отправить код'}</span>
                       </button>
                     </div>
-                  ) : (<>
-                  emailStage === 'code_sent' ? (
-                    <div className="space-y-2">
-                      <div className="text-[11px] text-slate-500 leading-relaxed">
-                        Код отправлен на {emailAddr}. Введите 6 цифр из письма.
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Статус / Сообщение */}
+                      <div className={`text-[11px] p-2.5 rounded-lg border leading-relaxed ${
+                        emailStage === 'code_sent'
+                          ? 'text-blue-800 bg-blue-50 border-blue-200'
+                          : emailStage === 'limited'
+                          ? 'text-red-800 bg-red-50 border-red-200'
+                          : 'text-amber-800 bg-amber-50 border-amber-200'
+                      }`}>
+                        {emailStage === 'code_sent' && `Код отправлен на ${emailAddr}. Введите 6 цифр из письма.`}
+                        {emailStage === 'limited' && 'Microsoft временно ограничил отправку кодов (слишком частые запросы). Подождите 30–60 минут или выберите другой способ.'}
+                        {emailStage !== 'code_sent' && emailStage !== 'limited' && (
+                          `Microsoft ожидает подтверждения (стадия: ${emailStage || 'проверка'}). Если код уже пришёл — введите его ниже, либо выберите вариант действия.`
+                        )}
                       </div>
+
+                      {/* Кнопки вариантов от Microsoft если есть */}
+                      {emailOptions.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[10px] text-slate-500 font-medium">Варианты от Microsoft:</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {emailOptions.map((opt, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => handleEmailClick(opt)}
+                                disabled={isEmailBusy}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Поле ввода кода доступно ВСЕГДА при наличии активного emailSid */}
                       <div className="flex gap-2">
                         <input
                           type="text"
@@ -767,24 +837,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <span>Отмена</span>
                         </button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-relaxed">
-                        {emailStage === 'limited'
-                          ? 'Microsoft временно ограничил отправку кодов (слишком частые запросы). Подождите 30–60 минут и нажмите «Отправить код» один раз.'
-                          : `Неожиданная стадия входа: ${emailStage}. Отмените и попробуйте ещё раз.`}
+
+                      {/* Переключатель просмотра снимка экрана */}
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowShot(!showShot)}
+                          className="text-[11px] text-blue-600 hover:underline cursor-pointer"
+                        >
+                          {showShot ? 'Скрыть снимок экрана' : 'Показать снимок экрана Microsoft'}
+                        </button>
+                        {showShot && (
+                          <button
+                            type="button"
+                            onClick={() => setShotKey(Date.now())}
+                            className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                          >
+                            Обновить снимок
+                          </button>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleEmailCancel}
-                        disabled={isEmailBusy}
-                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        <span>Отмена</span>
-                      </button>
+
+                      {showShot && (
+                        <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto bg-slate-50">
+                          <img
+                            src={`/api/auth/teams-email/shot/${emailSid}?t=${shotKey}`}
+                            alt="Microsoft login screen"
+                            className="w-full object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
-                  </>
                   )}
                 </div>
 
