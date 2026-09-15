@@ -36,6 +36,13 @@ async def get_settings_endpoint():
     user_prof = extract_user_profile()
     account_name = user_prof.get("name") or info.get("skypeid") or data.get("account_name") or "Пользователь Teams"
 
+    monthly_rate_val = 35000.0
+    try:
+        if data.get("monthly_rate"):
+            monthly_rate_val = float(data.get("monthly_rate"))
+    except (ValueError, TypeError):
+        pass
+
     return SettingsSchema(
         director_chat_url=data.get("director_chat_url", ""),
         director_message_template=data.get("director_message_template", "Здравствуйте, я на рабочем месте"),
@@ -48,7 +55,8 @@ async def get_settings_endpoint():
         auto_refresh_active=has_profile,
         account_name=account_name,
         account_status="active" if is_active else "inactive",
-        last_login_at=last_login
+        last_login_at=last_login,
+        monthly_rate=monthly_rate_val
     )
 
 @router.post("/settings")
@@ -66,7 +74,8 @@ async def update_settings(req: SettingsSchema):
         "daily_chat_url": req.daily_chat_url,
         "auth_token": req.auth_token.strip() if (req.auth_token and req.auth_token.strip()) else current.get("auth_token", ""),
         "auth_header_name": req.auth_header_name or current.get("auth_header_name", "Authentication"),
-        "custom_headers": req.custom_headers if req.custom_headers is not None else current.get("custom_headers", "{}")
+        "custom_headers": req.custom_headers if req.custom_headers is not None else current.get("custom_headers", "{}"),
+        "monthly_rate": str(req.monthly_rate if req.monthly_rate is not None and req.monthly_rate > 0 else 35000.0)
     }
     await save_settings(save_dict)
     return {"success": True, "message": "Настройки успешно сохранены."}

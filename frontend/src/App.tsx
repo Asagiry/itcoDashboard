@@ -23,14 +23,14 @@ export const App: React.FC = () => {
     return 'shift';
   });
   const [shift, setShift] = useState<Shift | null>(null);
+  const [shiftRate, setShiftRate] = useState<number>(1667.0);
   const [history, setHistory] = useState<Shift[]>([]);
   const [trackerIssues, setTrackerIssues] = useState<TrackerIssue[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-
-  useDynamicTitle(isAuthenticated ? shift : null);
+  useDynamicTitle(isAuthenticated ? shift : null, shiftRate);
 
   useEffect(() => {
     const handleUnauthorized = () => {
@@ -86,11 +86,21 @@ export const App: React.FC = () => {
     }
   };
 
+  const loadSalaryStats = async () => {
+    try {
+      const stats = await api.getSalaryStats();
+      if (stats?.shift_rate) {
+        setShiftRate(stats.shift_rate);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       loadUser();
       loadTodayShift();
       loadHistory();
+      loadSalaryStats();
     }
   }, [isAuthenticated]);
 
@@ -236,6 +246,7 @@ export const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         onSettingsSaved={() => {
           loadTodayShift();
+          loadSalaryStats();
         }}
         onResetTodayShift={handleResetTodayShift}
         showToast={showToast}

@@ -363,10 +363,18 @@ async def get_history(limit: int = 100):
 
 @router.get("/salary-stats")
 async def get_salary_stats():
-    MONTHLY_RATE = 35000.0
-    SHIFT_RATE = 1667.0
-    HOURLY_RATE = SHIFT_RATE / 8.0  # 208.375
-    MINUTE_RATE = HOURLY_RATE / 60.0  # ~3.472917
+    settings = await get_all_settings()
+    monthly_rate_val = 35000.0
+    try:
+        if settings.get("monthly_rate"):
+            monthly_rate_val = float(settings.get("monthly_rate"))
+    except (ValueError, TypeError):
+        pass
+
+    MONTHLY_RATE = monthly_rate_val if monthly_rate_val > 0 else 35000.0
+    SHIFT_RATE = 1667.0 if abs(MONTHLY_RATE - 35000.0) < 0.1 else round(MONTHLY_RATE / 21.0, 2)
+    HOURLY_RATE = SHIFT_RATE / 8.0
+    MINUTE_RATE = HOURLY_RATE / 60.0
 
     history = await get_shift_history(limit=500)
     now = get_now_dt()

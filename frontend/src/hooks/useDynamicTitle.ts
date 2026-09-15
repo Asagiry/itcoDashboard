@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { Shift } from '../types';
 
-const SECOND_RATE = 1667.0 / 28800.0;
-
 function parseShiftHours(start?: string | null, end?: string | null): number {
   if (!start || !end) return 8.0;
   try {
@@ -18,16 +16,19 @@ function parseShiftHours(start?: string | null, end?: string | null): number {
   }
 }
 
-export function useDynamicTitle(shift: Shift | null) {
+export function useDynamicTitle(shift: Shift | null, shiftRate: number = 1667.0) {
   useEffect(() => {
     if (!shift || shift.status === 'not_started') {
       document.title = 'ITCO Dashboard';
       return;
     }
 
+    const secondRate = shiftRate / 28800.0;
+    const hourlyRate = shiftRate / 8.0;
+
     if (shift.status === 'completed') {
       const hours = parseShiftHours(shift.start_time, shift.end_time);
-      const earned = hours * (1667.0 / 8.0);
+      const earned = hours * hourlyRate;
       const whole = Math.floor(earned).toLocaleString('ru-RU');
       const cents = (earned % 1).toFixed(2).slice(2);
       document.title = `[Завершена | +${whole}.${cents} ₽] ITCO Dashboard`;
@@ -55,7 +56,7 @@ export function useDynamicTitle(shift: Shift | null) {
 
         const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenths}`;
 
-        const todayEarned = (diff / 1000) * SECOND_RATE;
+        const todayEarned = (diff / 1000) * secondRate;
         const whole = Math.floor(todayEarned).toLocaleString('ru-RU');
         const cents = (todayEarned % 1).toFixed(2).slice(2);
         const todayMoneyStr = `+${whole}.${cents} ₽`;
@@ -71,5 +72,5 @@ export function useDynamicTitle(shift: Shift | null) {
         document.title = 'ITCO Dashboard';
       };
     }
-  }, [shift?.status, shift?.start_time, shift?.end_time]);
+  }, [shift?.status, shift?.start_time, shift?.end_time, shiftRate]);
 }

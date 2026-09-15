@@ -153,6 +153,30 @@ class BackendTestCase(unittest.TestCase):
         self.assertIn("completed_earned_total", data)
         self.assertIn("total_month_earned_live", data)
 
+        # Test updating custom monthly rate
+        r_sett = self.client.post("/api/settings", json={
+            "director_chat_url": "",
+            "director_message_template": "Тест",
+            "daily_chat_url": "",
+            "monthly_rate": 42000.0
+        })
+        self.assertEqual(r_sett.status_code, 200)
+
+        r_custom = self.client.get("/api/shifts/salary-stats")
+        self.assertEqual(r_custom.status_code, 200)
+        data_custom = r_custom.json()
+        self.assertEqual(data_custom["monthly_rate"], 42000.0)
+        self.assertEqual(data_custom["shift_rate"], 2000.0)
+        self.assertEqual(data_custom["hourly_rate"], 250.0)
+
+        # Revert back to 35000.0
+        self.client.post("/api/settings", json={
+            "director_chat_url": "",
+            "director_message_template": "Тест",
+            "daily_chat_url": "",
+            "monthly_rate": 35000.0
+        })
+
     def test_06_update_and_delete_shift(self):
         test_date = "2026-09-01"
         r = self.client.put(f"/api/shifts/{test_date}", json={

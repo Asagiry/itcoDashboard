@@ -119,7 +119,8 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
     }
   };
 
-  const SECOND_RATE = 1667.0 / 28800.0;
+  const currentShiftRate = salaryStats?.shift_rate ?? 1667.0;
+  const SECOND_RATE = currentShiftRate / 28800.0;
 
   const todayHours = isShiftCompleted
     ? (shift?.start_time && shift?.end_time ? parseShiftHours(shift.start_time, shift.end_time) : 8.0)
@@ -131,7 +132,7 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
   const todayEarnedLive = isShiftInProgress
     ? elapsedSeconds * SECOND_RATE
     : isShiftCompleted
-    ? todayHours * (1667.0 / 8.0)
+    ? todayHours * (currentShiftRate / 8.0)
     : 0;
 
   // Monthly earnings:
@@ -139,9 +140,9 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
   // When in progress, backend salaryStats.completed_earned_total contains prior completed shifts, and todayEarnedLive ticks live.
   const totalMonthEarnedLive = useMemo(() => {
     if (isShiftCompleted) {
-      return salaryStats?.total_month_earned_live ?? 11877.38;
+      return salaryStats?.total_month_earned_live ?? 0;
     }
-    const priorCompleted = salaryStats?.completed_earned_total ?? 10210.38;
+    const priorCompleted = salaryStats?.completed_earned_total ?? 0;
     return isShiftInProgress ? priorCompleted + todayEarnedLive : (salaryStats?.total_month_earned_live ?? priorCompleted);
   }, [salaryStats, isShiftCompleted, isShiftInProgress, todayEarnedLive]);
 

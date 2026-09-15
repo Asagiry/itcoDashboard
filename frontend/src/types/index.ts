@@ -38,6 +38,7 @@ export interface AppSettings {
   account_name?: string;
   account_status?: 'active' | 'inactive';
   last_login_at?: string | null;
+  monthly_rate?: number;
 }
 
 export interface StartShiftResponse {

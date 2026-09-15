@@ -130,7 +130,8 @@ async def init_db():
             "custom_headers": "{}",
             "tracker_url": "https://tracker.itco.su/workbench/itco/tracker/my-issues/issues",
             "tracker_account_name": "",
-            "tracker_last_sync": ""
+            "tracker_last_sync": "",
+            "monthly_rate": "35000.0"
         }
 
         for key, val in defaults.items():

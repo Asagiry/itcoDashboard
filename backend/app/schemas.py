@@ -23,6 +23,7 @@ class SettingsSchema(BaseModel):
     account_name: Optional[str] = Field("", description="Имя пользователя Teams")
     account_status: Optional[str] = Field("active", description="active | inactive")
     last_login_at: Optional[str] = Field(None, description="Время входа / обновления токена")
+    monthly_rate: Optional[float] = Field(35000.0, description="Оклад за месяц в рублях")
 
 class ShiftSchema(BaseModel):
     id: Optional[int] = None
