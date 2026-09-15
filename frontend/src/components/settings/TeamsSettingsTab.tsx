@@ -229,7 +229,7 @@ export const TeamsSettingsTab: React.FC<TeamsSettingsTabProps> = ({
   const selectedDailyChat = findChatByUrl(settings.daily_chat_url);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 select-none cursor-default">
       {/* Account Info Header */}
       <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -95,7 +95,7 @@ export const TrackerSettingsTab: React.FC<TrackerSettingsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 select-none cursor-default">
       {/* Account Status Card */}
       <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -41,42 +41,42 @@ export const ShiftResetTab: React.FC<ShiftResetTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-        <h4 className="font-bold">Зона управления данными</h4>
-        <p className="text-amber-800 leading-relaxed">
+    <div className="space-y-6 select-none cursor-default">
+      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1 select-none cursor-default">
+        <h4 className="font-bold select-none cursor-default">Зона управления данными</h4>
+        <p className="text-amber-800 leading-relaxed select-none cursor-default">
           Используйте сброс для тестирования начала/завершения рабочего дня или очистки отладочных записей.
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 select-none cursor-default">
         {/* Reset Today */}
-        <div className="p-4 rounded-xl border border-slate-200 flex items-center justify-between bg-white">
-          <div>
-            <h5 className="text-xs font-bold text-slate-800">Сбросить сегодняшнюю смену</h5>
-            <p className="text-[11px] text-slate-500">Удаляет запись смены за текущую дату</p>
+        <div className="p-4 rounded-xl border border-slate-200 flex items-center justify-between bg-white select-none cursor-default">
+          <div className="select-none cursor-default">
+            <h5 className="text-xs font-bold text-slate-800 select-none cursor-default">Сбросить сегодняшнюю смену</h5>
+            <p className="text-[11px] text-slate-500 select-none cursor-default">Удаляет запись смены за текущую дату</p>
           </div>
           <button
             type="button"
             onClick={handleResetToday}
             disabled={isResettingToday}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-semibold transition-colors cursor-pointer select-none"
           >
             {isResettingToday ? 'Сброс...' : 'Сбросить сегодня'}
           </button>
         </div>
 
         {/* Reset All */}
-        <div className="p-4 rounded-xl border border-rose-200/80 flex items-center justify-between bg-rose-50/30">
-          <div>
-            <h5 className="text-xs font-bold text-rose-900">Очистить всю историю смен</h5>
-            <p className="text-[11px] text-rose-700">Полное удаление всех смен из базы данных</p>
+        <div className="p-4 rounded-xl border border-rose-200/80 flex items-center justify-between bg-rose-50/30 select-none cursor-default">
+          <div className="select-none cursor-default">
+            <h5 className="text-xs font-bold text-rose-900 select-none cursor-default">Очистить всю историю смен</h5>
+            <p className="text-[11px] text-rose-700 select-none cursor-default">Полное удаление всех смен из базы данных</p>
           </div>
           <button
             type="button"
             onClick={handleResetAll}
             disabled={isResettingAll}
-            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer select-none"
           >
             {isResettingAll ? 'Очистка...' : 'Очистить всю базу'}
           </button>
