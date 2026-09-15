@@ -52,11 +52,14 @@ def normalize_tracker_status(raw_status: str) -> str:
         return "review"
     if s in [
         "готово к мержу", "ready to merge", "ready_to_merge", "ready-to-merge",
-        "ready for merge", "ready_for_merge", "ready-for-merge",
-        "done", "готово", "resolved", "закрыто", "canceled", "отменено",
-        "ready for production", "ready_for_production", "ready-for-production"
+        "ready for merge", "ready_for_merge", "ready-for-merge"
     ]:
         return "ready_to_merge"
+    if s in [
+        "ready for production", "ready_for_production", "ready-for-production",
+        "done", "готово", "resolved", "закрыто", "canceled", "отменено"
+    ]:
+        return "ready_for_production"
     return "todo"
 
 async def _run_huly_bridge(cmd: str, *args: str) -> Dict[str, Any]:

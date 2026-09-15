@@ -64,6 +64,14 @@ export const TRACKER_COLUMNS: ColumnDef[] = [
     pillText: 'text-emerald-900',
     icon: CheckCircle2,
   },
+  {
+    key: 'ready_for_production',
+    title: 'Ready for Production',
+    dotColor: 'bg-teal-500',
+    pillBg: 'bg-teal-50 text-teal-900 border border-teal-200/60',
+    pillText: 'text-teal-900',
+    icon: CheckCircle2,
+  },
 ];
 
 export const parseIssueAttachments = (issue: TrackerIssue): string[] => {

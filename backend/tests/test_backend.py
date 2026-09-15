@@ -271,7 +271,8 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(normalize_tracker_status("Тестирование"), "testing")
         self.assertEqual(normalize_tracker_status("Ревью"), "review")
         self.assertEqual(normalize_tracker_status("Готово к мержу"), "ready_to_merge")
-        self.assertEqual(normalize_tracker_status("Done"), "ready_to_merge")
+        self.assertEqual(normalize_tracker_status("Ready for production"), "ready_for_production")
+        self.assertEqual(normalize_tracker_status("Done"), "ready_for_production")
 
 if __name__ == "__main__":
     unittest.main()

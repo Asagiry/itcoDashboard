@@ -37,8 +37,10 @@ const STATUS_TO_ID = {
   'in_progress': 'tracker:status:InProgress',
   'review': '69f9bb5a112005c7f3bf3c72',
   'ready_for_testing': '6aa3c483f404981b798206bf',
-  'testing': '6aa3c483f404981b798206bf',
-  'ready_to_merge': '6a3f80269e8c40247bc05811'
+  'testing': '69f9bb44112005c7f3bf3c6a',
+  'ready_to_merge': '69fa066535e6ece6dbd474d2',
+  'ready_for_production': '6a3f80269e8c40247bc05811',
+  'done': 'tracker:status:Done'
 };
 
 const ID_TO_STATUS = {
@@ -47,10 +49,15 @@ const ID_TO_STATUS = {
   'tracker:status:InProgress': 'in_progress',
   '69f9bb5a112005c7f3bf3c72': 'review',
   '6aa3c483f404981b798206bf': 'ready_for_testing',
-  '6a3f80269e8c40247bc05811': 'ready_to_merge',
-  'tracker:status:Done': 'ready_to_merge',
-  'tracker:status:Resolved': 'ready_to_merge',
-  'tracker:status:Canceled': 'ready_to_merge'
+  '69f9bb44112005c7f3bf3c6a': 'testing',
+  '6a0c39a0364f2924b2573c25': 'testing',
+  '69fa066535e6ece6dbd474d2': 'ready_to_merge',
+  '6a3f80269e8c40247bc05811': 'ready_for_production',
+  'tracker:status:Done': 'ready_for_production',
+  'tracker:status:Resolved': 'ready_for_production',
+  'tracker:status:Canceled': 'ready_for_production',
+  '69f9c1c3112005c7f3bf440c': 'ready_for_production',
+  '69f9cbcc112005c7f3bf50c6': 'ready_for_production'
 };
 
 function downloadFile(fileUrl, destPath, authToken) {

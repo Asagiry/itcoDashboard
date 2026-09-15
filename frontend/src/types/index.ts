@@ -122,10 +122,11 @@ export interface LoginResponse {
 export type TrackerStatus =
   | 'todo'
   | 'in_progress'
+  | 'review'
   | 'ready_for_testing'
   | 'testing'
-  | 'review'
-  | 'ready_to_merge';
+  | 'ready_to_merge'
+  | 'ready_for_production';
 
 export interface TrackerProject {
   id: string;
