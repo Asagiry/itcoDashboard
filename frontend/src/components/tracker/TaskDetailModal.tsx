@@ -132,6 +132,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   }, [initialIssue?.key]);
 
+  const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
+
   const issue = currentIssue || initialIssue;
   if (!issue) return null;
 
@@ -141,10 +143,26 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-xs"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          setMouseDownOnBackdrop(true);
+        } else {
+          setMouseDownOnBackdrop(false);
+        }
+      }}
+      onMouseUp={(e) => {
+        if (mouseDownOnBackdrop && e.target === e.currentTarget) {
+          onClose();
+        }
+        setMouseDownOnBackdrop(false);
+      }}
     >
       <div
         className="w-[880px] max-w-[94vw] h-[680px] max-h-[88vh] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          setMouseDownOnBackdrop(false);
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Bar */}

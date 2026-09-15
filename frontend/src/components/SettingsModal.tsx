@@ -37,6 +37,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [teamsChats, setTeamsChats] = useState<TeamsChat[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [trackerStatus, setTrackerStatus] = useState<TrackerAuthStatus | null>(null);
+  const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
 
   const loadData = async () => {
     try {
@@ -83,10 +84,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-xs"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          setMouseDownOnBackdrop(true);
+        } else {
+          setMouseDownOnBackdrop(false);
+        }
+      }}
+      onMouseUp={(e) => {
+        if (mouseDownOnBackdrop && e.target === e.currentTarget) {
+          onClose();
+        }
+        setMouseDownOnBackdrop(false);
+      }}
     >
       <div
         className="w-[740px] h-[640px] min-h-[640px] max-h-[640px] max-w-[94vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none cursor-default"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          setMouseDownOnBackdrop(false);
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}

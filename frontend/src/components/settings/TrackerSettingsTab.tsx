@@ -27,6 +27,7 @@ export const TrackerSettingsTab: React.FC<TrackerSettingsTabProps> = ({
   const [loginLogs, setLoginLogs] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showLogsModal, setShowLogsModal] = useState(false);
+  const [mouseDownLogsBackdrop, setMouseDownLogsBackdrop] = useState(false);
   const [logs, setLogs] = useState<TrackerLogItem[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
@@ -217,10 +218,26 @@ export const TrackerSettingsTab: React.FC<TrackerSettingsTabProps> = ({
       {showLogsModal && (
         <div
           className="fixed inset-0 z-60 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setShowLogsModal(false)}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setMouseDownLogsBackdrop(true);
+            } else {
+              setMouseDownLogsBackdrop(false);
+            }
+          }}
+          onMouseUp={(e) => {
+            if (mouseDownLogsBackdrop && e.target === e.currentTarget) {
+              setShowLogsModal(false);
+            }
+            setMouseDownLogsBackdrop(false);
+          }}
         >
           <div
             className="w-[600px] max-w-full bg-slate-900 text-slate-200 rounded-2xl p-5 shadow-xl border border-slate-800 space-y-3"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              setMouseDownLogsBackdrop(false);
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
