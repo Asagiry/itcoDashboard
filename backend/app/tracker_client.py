@@ -257,15 +257,14 @@ async def update_tracker_issue_status(issue_key: str, new_status: str) -> Dict[s
     norm_status = normalize_tracker_status(new_status)
     _add_tracker_log("info", f"Изменение статуса задачи {issue_key} -> {norm_status}")
 
+    # 1. Update in local DB immediately for 0ms UI response
     updated_issue = await update_tracker_issue_status_in_db(issue_key, norm_status)
-    tracker_synced = await _apply_status_change_in_tracker(issue_key, norm_status)
 
-    msg = f"Статус задачи {issue_key} обновлен на '{norm_status}'"
-    if not tracker_synced:
-        msg += " (обновлено локально, синхронизация с сервером отложена)"
+    # 2. Sync mutation with live Huly transactor in background
+    asyncio.create_task(_apply_status_change_in_tracker(issue_key, norm_status))
 
     return {
         "success": True,
-        "message": msg,
+        "message": f"Статус задачи {issue_key} обновлен на '{norm_status}'",
         "issue": updated_issue
     }

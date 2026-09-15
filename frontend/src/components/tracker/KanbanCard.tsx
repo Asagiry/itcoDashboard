@@ -31,7 +31,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
         isDragging
           ? 'opacity-40 scale-95 border-blue-400 ring-2 ring-blue-400/40'
           : isUpdating
-          ? 'border-blue-500 ring-2 ring-blue-500/20 opacity-70'
+          ? 'border-blue-400/80 ring-1 ring-blue-400/30'
           : 'border-slate-200/80'
       }`}
     >

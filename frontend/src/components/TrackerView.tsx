@@ -16,11 +16,19 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
   const [authStatus, setAuthStatus] = useState<TrackerAuthStatus | null>(null);
   const [issues, setIssues] = useState<TrackerIssue[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [updatingIssueKey, setUpdatingIssueKey] = useState<string | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<TrackerIssue | null>(null);
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TrackerStatus | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  const pendingUpdatesRef = React.useRef<Map<string, TrackerStatus>>(new Map());
+
+  const applyIssuesWithPending = (incoming: TrackerIssue[]) => {
+    return incoming.map((iss) => {
+      const pending = pendingUpdatesRef.current.get(iss.key);
+      return pending ? { ...iss, status: pending } : iss;
+    });
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -29,8 +37,9 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
       setAuthStatus(statusRes);
 
       const issRes = await api.getTrackerIssues();
-      setIssues(issRes || []);
-      if (onIssuesUpdated) onIssuesUpdated(issRes || []);
+      const merged = applyIssuesWithPending(issRes || []);
+      setIssues(merged);
+      if (onIssuesUpdated) onIssuesUpdated(merged);
     } catch (err: any) {
       console.error('Error loading tracker data:', err);
       showToast('error', 'Ошибка загрузки трекера', err.message);
@@ -47,8 +56,9 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
       api.syncTracker()
         .then((res) => {
           if (res && res.issues) {
-            setIssues(res.issues);
-            if (onIssuesUpdated) onIssuesUpdated(res.issues);
+            const merged = applyIssuesWithPending(res.issues);
+            setIssues(merged);
+            if (onIssuesUpdated) onIssuesUpdated(merged);
           }
         })
         .catch(() => {});
@@ -62,8 +72,9 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
         api.syncTracker()
           .then((res) => {
             if (res && res.issues) {
-              setIssues(res.issues);
-              if (onIssuesUpdated) onIssuesUpdated(res.issues);
+              const merged = applyIssuesWithPending(res.issues);
+              setIssues(merged);
+              if (onIssuesUpdated) onIssuesUpdated(merged);
             }
           })
           .catch(() => {});
@@ -80,7 +91,10 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
     const issueToUpdate = issues.find((i) => i.key === issueKey);
     if (!issueToUpdate || issueToUpdate.status === targetStatus) return;
 
-    // Optimistic UI update
+    // Track optimistic pending change
+    pendingUpdatesRef.current.set(issueKey, targetStatus);
+
+    // Optimistic UI update - instant move
     const prevIssues = [...issues];
     const updatedIssues = issues.map((i) =>
       i.key === issueKey ? { ...i, status: targetStatus } : i
@@ -91,22 +105,25 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
       setSelectedIssue({ ...selectedIssue, status: targetStatus });
     }
 
-    setUpdatingIssueKey(issueKey);
     try {
       const res = await api.updateTrackerIssueStatus(issueKey, targetStatus);
-      if (res.success && res.issue) {
+      if (res.success) {
         showToast('success', 'Статус обновлен', res.message);
       } else {
+        pendingUpdatesRef.current.delete(issueKey);
         setIssues(prevIssues);
         if (onIssuesUpdated) onIssuesUpdated(prevIssues);
         showToast('error', 'Не удалось изменить статус', res.message);
       }
     } catch (err: any) {
+      pendingUpdatesRef.current.delete(issueKey);
       setIssues(prevIssues);
       if (onIssuesUpdated) onIssuesUpdated(prevIssues);
       showToast('error', 'Ошибка смены статуса', err.message);
     } finally {
-      setUpdatingIssueKey(null);
+      setTimeout(() => {
+        pendingUpdatesRef.current.delete(issueKey);
+      }, 3500);
     }
   };
 
@@ -147,7 +164,7 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
                 issues={colIssues}
                 isDragOver={isDragOver}
                 draggingKey={draggingKey}
-                updatingIssueKey={updatingIssueKey}
+                updatingIssueKey={null}
                 userInitials={userInitials}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -189,7 +206,7 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
       {/* Task Details Modal */}
       <TaskDetailModal
         issue={selectedIssue}
-        updatingIssueKey={updatingIssueKey}
+        updatingIssueKey={null}
         onClose={() => setSelectedIssue(null)}
         onStatusChange={handleStatusChange}
         onPreviewImage={(url) => setPreviewImageUrl(url)}
