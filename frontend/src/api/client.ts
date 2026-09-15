@@ -210,6 +210,9 @@ export const api = {
     return fetchJson<import('../types').TrackerIssue[]>(`${API_BASE}/tracker/issues${query ? `?${query}` : ''}`);
   },
 
+  getTrackerIssue: (issueKey: string): Promise<import('../types').TrackerIssue> =>
+    fetchJson<import('../types').TrackerIssue>(`${API_BASE}/tracker/issues/${encodeURIComponent(issueKey)}`),
+
   syncTracker: (): Promise<import('../types').TrackerSyncResponse> =>
     fetchJson<import('../types').TrackerSyncResponse>(`${API_BASE}/tracker/sync`, { method: 'POST' }),
 

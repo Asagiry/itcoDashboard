@@ -41,6 +41,39 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
 
   useEffect(() => {
     loadData();
+
+    // 1. Auto-sync silently on window focus
+    const handleFocus = () => {
+      api.syncTracker()
+        .then((res) => {
+          if (res && res.issues) {
+            setIssues(res.issues);
+            if (onIssuesUpdated) onIssuesUpdated(res.issues);
+          }
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    // 2. Periodic background live polling every 12 seconds
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        api.syncTracker()
+          .then((res) => {
+            if (res && res.issues) {
+              setIssues(res.issues);
+              if (onIssuesUpdated) onIssuesUpdated(res.issues);
+            }
+          })
+          .catch(() => {});
+      }
+    }, 12000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleStatusChange = async (issueKey: string, targetStatus: TrackerStatus) => {

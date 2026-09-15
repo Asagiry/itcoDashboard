@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ExternalLink, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { TrackerIssue, TrackerStatus } from '../../types';
+import { api } from '../../api/client';
 import { TRACKER_COLUMNS, parseIssueAttachments } from './trackerConstants';
 
 interface TaskDetailModalProps {
@@ -18,83 +19,120 @@ const DescriptionRenderer: React.FC<{ content: string; onPreviewImage: (url: str
   const lines = content.split('\n');
 
   return (
-    <div className="text-sm text-slate-800 space-y-2.5 leading-relaxed font-normal">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          return <div key={idx} className="h-1" />;
+    <div className="text-sm text-slate-800 space-y-3 leading-relaxed font-normal">
+      {lines.map((rawLine, idx) => {
+        const line = rawLine.trim();
+        if (!line) {
+          return <div key={idx} className="h-0.5" />;
         }
 
-        // Check if line contains an inline markdown image: ![alt](url)
-        const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
-        if (imgMatch) {
-          const alt = imgMatch[1] || 'Скриншот';
-          const src = imgMatch[2];
-          return (
-            <div key={idx} className="my-2.5">
-              <div
-                onClick={() => onPreviewImage(src)}
-                className="group relative inline-block max-w-full rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden shadow-2xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer"
-              >
-                <img
-                  src={src}
-                  alt={alt}
-                  className="max-h-72 max-w-full object-contain rounded-lg p-1.5"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-2xs">
-                  <ZoomIn className="w-4 h-4" />
-                  <span>Увеличить скриншот</span>
-                </div>
-              </div>
-            </div>
-          );
-        }
+        // Split line by markdown images (![alt](url))
+        const segments = line.split(/(!\[[^\]]*\]\([^)]+\))/g).filter(Boolean);
 
-        // Numbered list
-        const numMatch = trimmed.match(/^(\d+\.)\s+(.*)$/);
-        if (numMatch) {
-          return (
-            <div key={idx} className="flex items-start gap-2.5 pl-1 text-slate-800">
-              <span className="font-semibold text-slate-500 tabular-nums shrink-0">{numMatch[1]}</span>
-              <span className="flex-1">{numMatch[2]}</span>
-            </div>
-          );
-        }
+        return (
+          <div key={idx} className="space-y-2">
+            {segments.map((seg, sIdx) => {
+              const imgMatch = seg.match(/^!\[(.*?)\]\((.*?)\)$/);
+              if (imgMatch) {
+                const alt = imgMatch[1] || 'Скриншот';
+                const src = imgMatch[2];
+                return (
+                  <div key={sIdx} className="my-2.5">
+                    <div
+                      onClick={() => onPreviewImage(src)}
+                      className="group relative inline-block max-w-full rounded-xl border border-slate-200 bg-slate-50/70 overflow-hidden shadow-2xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer"
+                    >
+                      <img
+                        src={src}
+                        alt={alt}
+                        className="max-h-80 max-w-full object-contain rounded-lg p-1.5"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-2xs">
+                        <ZoomIn className="w-4 h-4" />
+                        <span>Увеличить скриншот</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
-        // Bullet list
-        if (/^[-*•]\s+/.test(trimmed)) {
-          const text = trimmed.replace(/^[-*•]\s+/, '');
-          return (
-            <div key={idx} className="flex items-start gap-2.5 pl-2 text-slate-800">
-              <span className="text-slate-400 font-bold shrink-0 select-none">•</span>
-              <span className="flex-1">{text}</span>
-            </div>
-          );
-        }
+              const trimmedSeg = seg.trim();
+              if (!trimmedSeg) return null;
 
-        // Expected / Actual result or Q&A badges
-        if (trimmed.startsWith('ОР.') || trimmed.startsWith('ФР.') || trimmed.toLowerCase().startsWith('вопрос:') || trimmed.toLowerCase().startsWith('ответ:')) {
-          return (
-            <div key={idx} className="font-semibold text-slate-900 bg-slate-100/70 px-3 py-1.5 rounded-lg border border-slate-200/80 text-[13px]">
-              {trimmed}
-            </div>
-          );
-        }
+              // Numbered list
+              const numMatch = trimmedSeg.match(/^(\d+\.)\s+(.*)$/);
+              if (numMatch) {
+                return (
+                  <div key={sIdx} className="flex items-start gap-2.5 pl-1 text-slate-800">
+                    <span className="font-semibold text-slate-500 tabular-nums shrink-0">{numMatch[1]}</span>
+                    <span className="flex-1">{numMatch[2]}</span>
+                  </div>
+                );
+              }
 
-        return <p key={idx} className="text-slate-800">{trimmed}</p>;
+              // Bullet list
+              if (/^[-*•]\s+/.test(trimmedSeg)) {
+                const text = trimmedSeg.replace(/^[-*•]\s+/, '');
+                return (
+                  <div key={sIdx} className="flex items-start gap-2.5 pl-2 text-slate-800">
+                    <span className="text-slate-400 font-bold shrink-0 select-none">•</span>
+                    <span className="flex-1">{text}</span>
+                  </div>
+                );
+              }
+
+              // Expected / Actual result or Q&A badges
+              if (
+                trimmedSeg.startsWith('ОР.') ||
+                trimmedSeg.startsWith('ФР.') ||
+                trimmedSeg.toLowerCase().startsWith('вопрос:') ||
+                trimmedSeg.toLowerCase().startsWith('ответ:')
+              ) {
+                return (
+                  <div
+                    key={sIdx}
+                    className="font-semibold text-slate-900 bg-slate-100/80 px-3 py-1.5 rounded-lg border border-slate-200/80 text-[13px]"
+                  >
+                    {trimmedSeg}
+                  </div>
+                );
+              }
+
+              return (
+                <p key={sIdx} className="text-slate-800">
+                  {trimmedSeg}
+                </p>
+              );
+            })}
+          </div>
+        );
       })}
     </div>
   );
 };
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
-  issue,
+  issue: initialIssue,
   updatingIssueKey,
   onClose,
   onStatusChange,
   onPreviewImage,
 }) => {
+  const [currentIssue, setCurrentIssue] = useState<TrackerIssue | null>(initialIssue);
+
+  useEffect(() => {
+    setCurrentIssue(initialIssue);
+    if (initialIssue?.key) {
+      api.getTrackerIssue(initialIssue.key)
+        .then((fresh) => {
+          if (fresh) setCurrentIssue(fresh);
+        })
+        .catch(() => {});
+    }
+  }, [initialIssue?.key]);
+
+  const issue = currentIssue || initialIssue;
   if (!issue) return null;
 
   const attachments = parseIssueAttachments(issue);

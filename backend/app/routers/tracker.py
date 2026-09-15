@@ -104,6 +104,14 @@ async def tracker_issues_endpoint(
     issues = await get_tracker_issues(project_key=project_key, status=status, search=search)
     return [TrackerIssueSchema(**i) for i in issues]
 
+@router.get("/issues/{issue_key}", response_model=TrackerIssueSchema)
+async def tracker_single_issue_endpoint(issue_key: str):
+    issues = await get_tracker_issues(search=issue_key)
+    found = next((i for i in issues if i.get("key") == issue_key or i.get("id") == issue_key), None)
+    if not found:
+        raise HTTPException(status_code=404, detail="Задача не найдена.")
+    return TrackerIssueSchema(**found)
+
 @router.post("/sync", response_model=TrackerSyncResponse)
 async def tracker_sync_endpoint():
     res = await fetch_tracker_data(force_refresh=True)

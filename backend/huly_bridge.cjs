@@ -210,16 +210,19 @@ async function syncTracker(token, accountId) {
       }
     }
 
-    // Replace inline markdown image references with local URLs
+    // Replace inline markdown image references with local URLs and ensure proper newline separation
     desc = desc.replace(/!\[([^\]]*)\]\(([^)&"'\s]+)(?:[^\)]*)?\)/g, (m, alt, fileId) => {
       const cleanId = fileId.split('&')[0].split('?')[0].trim();
       const localUrl = fileIdToLocalUrl[cleanId] || ('/api/tracker/attachments/' + key + '/' + cleanId.substring(0, 12) + '.png');
-      return `![${alt || 'image'}](${localUrl})`;
+      return `\n\n![${alt || 'Скриншот'}](${localUrl})\n\n`;
     });
 
     // Clean technical download boilerplate
     desc = desc.replace(/image\.(?:png|jpg|jpeg)\s+[\d\.]+\s*(?:kB|MB|B)\s*•\s*Download\s*•\s*Delete/gi, '').trim();
     desc = desc.replace(/[\w\.\-]+\.(?:exe|png|jpg|jpeg|pdf|zip)\s+[\d\.]+\s*(?:kB|MB|B)\s*•\s*Download(?:\s*•\s*Delete)?/gi, '').trim();
+    desc = desc.replace(/\\$/gm, '');
+    desc = desc.replace(/\\n/g, '\n');
+    desc = desc.replace(/\n{3,}/g, '\n\n').trim();
 
     const normStatus = ID_TO_STATUS[iss.status] || 'todo';
     const projKey = iss.identifier ? iss.identifier.split('-')[0] : 'МКС';
