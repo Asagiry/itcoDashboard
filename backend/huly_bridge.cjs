@@ -159,8 +159,12 @@ async function syncTracker(token, accountId) {
     let desc = '';
     if (iss.description) {
       try {
-        const collabId = 'tracker:class:Issue:' + iss._id + ':description';
-        const rawMarkup = await collab.getMarkup(collabId, iss.description);
+        const doc = {
+          objectClass: 'tracker:class:Issue',
+          objectId: iss._id,
+          objectAttr: 'description'
+        };
+        const rawMarkup = await collab.getMarkup(doc, iss.description);
         if (rawMarkup) {
           const json = markupToJSON(rawMarkup);
           desc = markupToMarkdown(json, { refUrl: '', imageUrl: '' }) || '';
@@ -168,21 +172,54 @@ async function syncTracker(token, accountId) {
       } catch (err) {}
     }
 
-    // Clean description
-    desc = desc.replace(/image\.(?:png|jpg|jpeg)\s+[\d\.]+\s*(?:kB|MB|B)\s*•\s*Download\s*•\s*Delete/gi, '').trim();
-    desc = desc.replace(/[\w\.\-]+\.(?:exe|png|jpg|jpeg|pdf|zip)\s+[\d\.]+\s*(?:kB|MB|B)\s*•\s*Download(?:\s*•\s*Delete)?/gi, '').trim();
+    // Clean HTML spans
+    desc = desc.replace(/<span[^>]*>/gi, '').replace(/<\/span>/gi, '');
 
-    // Attachments
+    // Attachments from attachment objects
     const issueAttaches = attachMap[iss._id] || [];
     const localAttachments = [];
+    const fileIdToLocalUrl = {};
+
     for (const a of issueAttaches) {
       const fileId = a.file || a._id;
       const fn = fileId.substring(0, 12) + '.png';
       const fileUrl = HULY_URL + '/files/' + WORKSPACE + '/' + encodeURIComponent(a.name || 'image.png') + '?file=' + fileId + '&workspace=' + WORKSPACE;
       const dest = path.join(MEDIA_BASE, key, fn);
       await downloadFile(fileUrl, dest, token);
-      localAttachments.push('/api/tracker/attachments/' + key + '/' + fn);
+      const localUrl = '/api/tracker/attachments/' + key + '/' + fn;
+      localAttachments.push(localUrl);
+      fileIdToLocalUrl[fileId] = localUrl;
     }
+
+    // Check for any inline image references in description
+    const inlineImgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    let match;
+    while ((match = inlineImgRegex.exec(desc)) !== null) {
+      const rawTarget = match[2];
+      const fileId = rawTarget.split('&')[0].split('?')[0].trim();
+      if (fileId && fileId.length >= 8 && !fileIdToLocalUrl[fileId]) {
+        const fn = fileId.substring(0, 12) + '.png';
+        const fileUrl = HULY_URL + '/files/' + WORKSPACE + '/image.png?file=' + fileId + '&workspace=' + WORKSPACE;
+        const dest = path.join(MEDIA_BASE, key, fn);
+        await downloadFile(fileUrl, dest, token);
+        const localUrl = '/api/tracker/attachments/' + key + '/' + fn;
+        if (!localAttachments.includes(localUrl)) {
+          localAttachments.push(localUrl);
+        }
+        fileIdToLocalUrl[fileId] = localUrl;
+      }
+    }
+
+    // Replace inline markdown image references with local URLs
+    desc = desc.replace(/!\[([^\]]*)\]\(([^)&"'\s]+)(?:[^\)]*)?\)/g, (m, alt, fileId) => {
+      const cleanId = fileId.split('&')[0].split('?')[0].trim();
+      const localUrl = fileIdToLocalUrl[cleanId] || ('/api/tracker/attachments/' + key + '/' + cleanId.substring(0, 12) + '.png');
+      return `![${alt || 'image'}](${localUrl})`;
+    });
+
+    // Clean technical download boilerplate
+    desc = desc.replace(/image\.(?:png|jpg|jpeg)\s+[\d\.]+\s*(?:kB|MB|B)\s*•\s*Download\s*•\s*Delete/gi, '').trim();
+    desc = desc.replace(/[\w\.\-]+\.(?:exe|png|jpg|jpeg|pdf|zip)\s+[\d\.]+\s*(?:kB|MB|B)\s*•\s*Download(?:\s*•\s*Delete)?/gi, '').trim();
 
     const normStatus = ID_TO_STATUS[iss.status] || 'todo';
     const projKey = iss.identifier ? iss.identifier.split('-')[0] : 'МКС';

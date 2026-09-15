@@ -11,6 +11,83 @@ interface TaskDetailModalProps {
   onPreviewImage: (url: string) => void;
 }
 
+const DescriptionRenderer: React.FC<{ content: string; onPreviewImage: (url: string) => void }> = ({
+  content,
+  onPreviewImage,
+}) => {
+  const lines = content.split('\n');
+
+  return (
+    <div className="text-sm text-slate-800 space-y-2.5 leading-relaxed font-normal">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={idx} className="h-1" />;
+        }
+
+        // Check if line contains an inline markdown image: ![alt](url)
+        const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+        if (imgMatch) {
+          const alt = imgMatch[1] || 'Скриншот';
+          const src = imgMatch[2];
+          return (
+            <div key={idx} className="my-2.5">
+              <div
+                onClick={() => onPreviewImage(src)}
+                className="group relative inline-block max-w-full rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden shadow-2xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer"
+              >
+                <img
+                  src={src}
+                  alt={alt}
+                  className="max-h-72 max-w-full object-contain rounded-lg p-1.5"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-2xs">
+                  <ZoomIn className="w-4 h-4" />
+                  <span>Увеличить скриншот</span>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Numbered list
+        const numMatch = trimmed.match(/^(\d+\.)\s+(.*)$/);
+        if (numMatch) {
+          return (
+            <div key={idx} className="flex items-start gap-2.5 pl-1 text-slate-800">
+              <span className="font-semibold text-slate-500 tabular-nums shrink-0">{numMatch[1]}</span>
+              <span className="flex-1">{numMatch[2]}</span>
+            </div>
+          );
+        }
+
+        // Bullet list
+        if (/^[-*•]\s+/.test(trimmed)) {
+          const text = trimmed.replace(/^[-*•]\s+/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2.5 pl-2 text-slate-800">
+              <span className="text-slate-400 font-bold shrink-0 select-none">•</span>
+              <span className="flex-1">{text}</span>
+            </div>
+          );
+        }
+
+        // Expected / Actual result or Q&A badges
+        if (trimmed.startsWith('ОР.') || trimmed.startsWith('ФР.') || trimmed.toLowerCase().startsWith('вопрос:') || trimmed.toLowerCase().startsWith('ответ:')) {
+          return (
+            <div key={idx} className="font-semibold text-slate-900 bg-slate-100/70 px-3 py-1.5 rounded-lg border border-slate-200/80 text-[13px]">
+              {trimmed}
+            </div>
+          );
+        }
+
+        return <p key={idx} className="text-slate-800">{trimmed}</p>;
+      })}
+    </div>
+  );
+};
+
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   issue,
   updatingIssueKey,
@@ -70,9 +147,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
           {/* Description */}
           {issue.description && issue.description.trim() ? (
-            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-normal">
-              {issue.description}
-            </div>
+            <DescriptionRenderer content={issue.description} onPreviewImage={onPreviewImage} />
           ) : (
             <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/70 text-slate-600 space-y-3">
               <p className="text-xs leading-relaxed">
