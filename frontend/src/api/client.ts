@@ -72,9 +72,6 @@ export const api = {
   getHistory: (limit: number = 100): Promise<Shift[]> =>
     fetchJson<Shift[]>(`${API_BASE}/shifts/history?limit=${limit}`),
 
-  resetTodayShift: (): Promise<{ success: boolean; message: string; shift: Shift }> =>
-    fetchJson(`${API_BASE}/shifts/reset-today`, { method: 'POST' }),
-
   getSalaryStats: (): Promise<SalaryStats> =>
     fetchJson<SalaryStats>(`${API_BASE}/shifts/salary-stats`),
 
@@ -144,11 +141,6 @@ export const api = {
   deleteShift: (date: string): Promise<{ success: boolean; message: string }> =>
     fetchJson(`${API_BASE}/shifts/${date}`, {
       method: 'DELETE',
-    }),
-
-  resetAllData: (): Promise<{ success: boolean; message: string }> =>
-    fetchJson(`${API_BASE}/shifts/reset-all-data`, {
-      method: 'POST',
     }),
 
   login: (username: string, password: string): Promise<LoginResponse> =>

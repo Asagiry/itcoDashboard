@@ -21,6 +21,7 @@ from backend.app.database import (
 )
 from backend.app.curl_parser import parse_curl_command
 from backend.app.teams_client import format_message_for_teams
+from backend.app.routers.shifts import get_today_str
 from backend.app.main import app, MOSCOW_TZ
 from starlette.testclient import TestClient
 from unittest.mock import patch, AsyncMock
@@ -81,9 +82,9 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(data["director_message_template"], "Здравствуйте, я на рабочем месте")
 
     def test_03_shift_lifecycle(self):
-        # 1. Reset today
-        r = self.client.post("/api/shifts/reset-today")
-        self.assertEqual(r.status_code, 200)
+        # 1. Clean today's record
+        today = get_today_str()
+        self.client.delete(f"/api/shifts/{today}")
 
         # 2. Check today is not_started
         r = self.client.get("/api/shifts/today")
@@ -199,7 +200,8 @@ class BackendTestCase(unittest.TestCase):
         self.assertTrue(r.json()["success"])
 
     def test_07_scheduled_shift_report_logic(self):
-        self.client.post("/api/shifts/reset-today")
+        today = get_today_str()
+        self.client.delete(f"/api/shifts/{today}")
         self.client.post("/api/shifts/start")
 
         fake_now = datetime(2026, 9, 15, 17, 35, 0, tzinfo=MOSCOW_TZ)
@@ -221,7 +223,7 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(data["shift"]["report_status"], "sent")
         self.assertIsNotNone(data["shift"]["report_sent_at"])
 
-        self.client.post("/api/shifts/reset-today")
+        self.client.delete(f"/api/shifts/{today}")
         self.client.post("/api/shifts/start")
         fake_1800 = datetime(2026, 9, 15, 18, 0, 0, tzinfo=MOSCOW_TZ)
         with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_1800):

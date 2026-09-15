@@ -433,30 +433,6 @@ async def get_salary_stats():
         "today_shift": today_shift
     }
 
-@router.post("/reset-today")
-async def reset_today_shift():
-    today = get_today_str()
-    await delete_shift_by_date(today)
-    new_shift = await create_or_update_shift(
-        today,
-        status="not_started",
-        daily_report="",
-        start_time=None,
-        end_time=None,
-        report_status="not_scheduled",
-        report_scheduled_at=None,
-        report_sent_at=None
-    )
-    return {"success": True, "message": "Статус смены за сегодня успешно сброшен.", "shift": ShiftSchema(**new_shift)}
-
-@router.post("/reset-all-data")
-async def reset_all_data_endpoint():
-    import aiosqlite
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("DELETE FROM shifts")
-        await db.commit()
-    return {"success": True, "message": "Все данные смен успешно удалены из базы."}
-
 @router.put("/{date_str}", response_model=UpdateShiftResponse)
 async def update_shift_endpoint(date_str: str, req: UpdateShiftRequest):
     shift = await get_shift_by_date(date_str)
