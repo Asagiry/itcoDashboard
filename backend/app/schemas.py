@@ -24,12 +24,6 @@ class SettingsSchema(BaseModel):
     account_status: Optional[str] = Field("active", description="active | inactive")
     last_login_at: Optional[str] = Field(None, description="Время входа / обновления токена")
 
-class UpdateShiftRequest(BaseModel):
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    status: Optional[str] = None
-    daily_report: Optional[str] = None
-
 class ShiftSchema(BaseModel):
     id: Optional[int] = None
     date: str
@@ -39,6 +33,9 @@ class ShiftSchema(BaseModel):
     daily_report: Optional[str] = ""
     raw_response_start: Optional[str] = None
     raw_response_end: Optional[str] = None
+    report_status: str = Field("not_scheduled", description="not_scheduled | scheduled | sending | sent | failed")
+    report_scheduled_at: Optional[str] = None
+    report_sent_at: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -56,6 +53,13 @@ class SaveDraftRequest(BaseModel):
     daily_report: str = Field(..., description="Текст черновика отчета")
 
 class EndShiftResponse(BaseModel):
+    success: bool
+    shift: ShiftSchema
+    message: str
+    teams_status_code: Optional[int] = None
+    teams_response: Optional[str] = None
+
+class SendReportNowResponse(BaseModel):
     success: bool
     shift: ShiftSchema
     message: str
@@ -90,6 +94,9 @@ class UpdateShiftRequest(BaseModel):
     duration_hours: Optional[float] = Field(None, description="Длительность смены в часах (например, 8.0)")
     daily_report: Optional[str] = Field(None, description="Текст ежедневного отчета")
     status: Optional[str] = Field(None, description="Статус смены: not_started, in_progress, completed")
+    report_status: Optional[str] = Field(None, description="Статус отправки отчета: not_scheduled, scheduled, sending, sent, failed")
+    report_scheduled_at: Optional[str] = Field(None, description="Запланированное время отправки отчета")
+    report_sent_at: Optional[str] = Field(None, description="Время фактической отправки отчета")
 
 class UpdateShiftResponse(BaseModel):
     success: bool

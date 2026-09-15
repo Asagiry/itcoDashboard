@@ -1,4 +1,5 @@
 export type ShiftStatus = 'not_started' | 'in_progress' | 'completed';
+export type ReportStatus = 'not_scheduled' | 'scheduled' | 'sending' | 'sent' | 'failed';
 
 export interface Shift {
   id?: number;
@@ -9,6 +10,9 @@ export interface Shift {
   daily_report: string;
   raw_response_start?: string | null;
   raw_response_end?: string | null;
+  report_status?: ReportStatus;
+  report_scheduled_at?: string | null;
+  report_sent_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }

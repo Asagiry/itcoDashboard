@@ -86,6 +86,7 @@ class BackendTestCase(unittest.TestCase):
         r = self.client.get("/api/shifts/today")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["status"], "not_started")
+        self.assertEqual(r.json()["report_status"], "not_scheduled")
 
         # 3. Start shift
         r = self.client.post("/api/shifts/start")
@@ -115,12 +116,20 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(data["shift"]["status"], "completed")
         self.assertIsNotNone(data["shift"]["end_time"])
         self.assertEqual(data["shift"]["daily_report"], "1. Сделал проект\n2. Проверил тесты")
+        self.assertIn(data["shift"]["report_status"], ["scheduled", "sent"])
 
-        # 8. Ending again should be rejected (400)
+        # 8. Test send-report-now
+        r = self.client.post("/api/shifts/send-report-now")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["shift"]["report_status"], "sent")
+
+        # 9. Ending again should be rejected (400)
         r = self.client.post("/api/shifts/end", json={"daily_report": "Еще раз"})
         self.assertEqual(r.status_code, 400)
 
-        # 9. History should contain the shift
+        # 10. History should contain the shift
         r = self.client.get("/api/shifts/history")
         self.assertEqual(r.status_code, 200)
         history = r.json()
@@ -147,7 +156,8 @@ class BackendTestCase(unittest.TestCase):
         r = self.client.put(f"/api/shifts/{test_date}", json={
             "start_time": "10:00:00",
             "end_time": "19:00:00",
-            "daily_report": "Тест редактирования отчета"
+            "daily_report": "Тест редактирования отчета",
+            "report_status": "sent"
         })
         self.assertEqual(r.status_code, 200)
         data = r.json()
@@ -156,11 +166,53 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(data["shift"]["end_time"], "19:00:00")
         self.assertEqual(data["shift"]["daily_report"], "Тест редактирования отчета")
         self.assertEqual(data["shift"]["status"], "completed")
+        self.assertEqual(data["shift"]["report_status"], "sent")
 
         # Delete shift
         r = self.client.delete(f"/api/shifts/{test_date}")
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json()["success"])
+
+    def test_07_scheduled_shift_report_logic(self):
+        from datetime import datetime
+        from backend.app.main import MOSCOW_TZ
+
+        # 1. Reset today
+        self.client.post("/api/shifts/reset-today")
+        self.client.post("/api/shifts/start")
+
+        # Set shift to 17:35 MSK, rounded end 18:00:00 -> should schedule
+        fake_now = datetime(2026, 9, 15, 17, 35, 0, tzinfo=MOSCOW_TZ)
+        with patch("backend.app.main.get_now_dt", return_value=fake_now):
+            r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет в 17:35"})
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            self.assertTrue(data["success"])
+            self.assertEqual(data["shift"]["status"], "completed")
+            self.assertEqual(data["shift"]["end_time"], "18:00:00")
+            self.assertEqual(data["shift"]["report_status"], "scheduled")
+            self.assertEqual(data["shift"]["report_scheduled_at"], "18:00:00")
+            self.assertIn("18:00", data["message"])
+
+        # 2. Trigger send-report-now
+        r = self.client.post("/api/shifts/send-report-now")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["shift"]["report_status"], "sent")
+        self.assertIsNotNone(data["shift"]["report_sent_at"])
+
+        # 3. Test ending at exact 18:00:00 -> sends immediately
+        self.client.post("/api/shifts/reset-today")
+        self.client.post("/api/shifts/start")
+        fake_1800 = datetime(2026, 9, 15, 18, 0, 0, tzinfo=MOSCOW_TZ)
+        with patch("backend.app.main.get_now_dt", return_value=fake_1800):
+            r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет ровно в 18:00"})
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            self.assertTrue(data["success"])
+            self.assertEqual(data["shift"]["status"], "completed")
+            self.assertEqual(data["shift"]["report_status"], "sent")
 
 if __name__ == "__main__":
     unittest.main()

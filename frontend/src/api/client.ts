@@ -64,6 +64,11 @@ export const api = {
       body: JSON.stringify({ daily_report }),
     }),
 
+  sendReportNow: (): Promise<EndShiftResponse> =>
+    fetchJson<EndShiftResponse>(`${API_BASE}/shifts/send-report-now`, {
+      method: 'POST',
+    }),
+
   getHistory: (limit: number = 100): Promise<Shift[]> =>
     fetchJson<Shift[]>(`${API_BASE}/shifts/history?limit=${limit}`),
 
