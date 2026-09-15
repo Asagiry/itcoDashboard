@@ -1,13 +1,11 @@
 import React from 'react';
-import { Coins, Calculator, Info } from 'lucide-react';
+import { Coins, Calculator } from 'lucide-react';
 import { AppSettings } from '../../types';
 
 interface SalarySettingsTabProps {
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
 }
-
-const PRESETS = [35000, 45000, 60000, 80000, 100000];
 
 export const SalarySettingsTab: React.FC<SalarySettingsTabProps> = ({
   settings,
@@ -62,25 +60,6 @@ export const SalarySettingsTab: React.FC<SalarySettingsTabProps> = ({
               ₽ / мес
             </span>
           </div>
-
-          {/* Presets */}
-          <div className="flex items-center gap-2 pt-1 flex-wrap">
-            <span className="text-[11px] text-slate-400 font-medium">Быстрый выбор:</span>
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => handleRateChange(p)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold font-mono transition-all cursor-pointer ${
-                  currentRate === p
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
-                }`}
-              >
-                {p.toLocaleString('ru-RU')} ₽
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -123,19 +102,6 @@ export const SalarySettingsTab: React.FC<SalarySettingsTabProps> = ({
             </div>
             <span className="text-[10px] text-slate-400 block">онлайн-счётчик</span>
           </div>
-        </div>
-      </div>
-
-      {/* Math Explanation Alert */}
-      <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/60 flex items-start gap-3">
-        <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-        <div className="text-xs text-blue-900/80 space-y-1 leading-relaxed">
-          <p className="font-semibold text-blue-950">Правила финансового расчёта:</p>
-          <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
-            <li>Стандартный месяц рассчитывается из <strong>21 рабочего дня</strong> по 8 часов.</li>
-            <li>При переработке свыше 8.0 часов оплата начисляется пропорционально фактической часовой ставке.</li>
-            <li>Счётчик заработанного на главной странице и в заголовке вкладки обновляется в реальном времени на основе этих ставок.</li>
-          </ul>
         </div>
       </div>
     </div>
