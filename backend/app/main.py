@@ -741,9 +741,9 @@ async def parse_curl_endpoint(req: ParseCurlRequest):
 # --- Browser Auth & Chat Picker Endpoints ---
 
 @app.get("/api/teams/chats")
-async def get_teams_chats():
+async def get_teams_chats(force: bool = False):
     auth_header, auth_token = await ensure_active_token()
-    chats = await fetch_teams_conversations(auth_token, auth_header)
+    chats = await fetch_teams_conversations(auth_token, auth_header, force_refresh=force)
     return {"success": True, "chats": chats}
 
 @app.get("/api/auth/browser-status")

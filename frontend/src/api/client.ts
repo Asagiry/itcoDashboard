@@ -94,8 +94,8 @@ export const api = {
       body: JSON.stringify({ curl_command }),
     }),
 
-  getTeamsChats: (): Promise<{ success: boolean; chats: import('../types').TeamsChat[] }> =>
-    fetchJson(`${API_BASE}/teams/chats`),
+  getTeamsChats: (force: boolean = false): Promise<{ success: boolean; chats: import('../types').TeamsChat[] }> =>
+    fetchJson(`${API_BASE}/teams/chats${force ? '?force=true' : ''}`),
 
   getBrowserStatus: (): Promise<{ success: boolean; has_profile: boolean }> =>
     fetchJson(`${API_BASE}/auth/browser-status`),

@@ -8,6 +8,7 @@ import asyncio
 import signal
 import subprocess
 import httpx
+import urllib.parse
 from typing import List, Dict, Any, Optional, Tuple
 
 libs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "libs"))
@@ -19,6 +20,22 @@ from .teams_client import decode_token_info
 
 PROFILE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "browser_data"))
 CHATS_CACHE_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "teams_chats_cache.json"))
+NAMED_CHATS_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "named_chats.json"))
+
+KNOWN_CHAT_NAMES = {
+    "19:53563ee0e21748c1834f311533c7ab5a@thread.skype": "IT Co. Часы",
+    "19:aebc4f4bb3f746ce82fc6678d4f36fee@thread.skype": "IT Co. Daily",
+    "19:uni01_y47eujrr2xllekkwey22bh5kgzseci7b7kvpk5p2sefgkkpfd2za@thread.v2": "Nikolay Veselov",
+    "19:uni01_fneurtzg7jt3vcqszkpwwdbwxomimmbszc6yiujbuhm7xvbu2daq@thread.v2": "Daria Korchagina",
+    "19:uni01_2xz65lprr5afxzcpd6vgxi6fbbdhaedc3lsvp7j5ohxqrczgi2oa@thread.v2": "Полина Русских",
+    "19:uni01_cdf4yfrjgzercax55vdopdbvnn4skwnfvekn7x5tvlroejdxcvdq@thread.v2": "Valeriya Kuryanova",
+    "19:uni01_wfntmsefhbdi6v7sw7hxtm3hgofsumczzle2xaqhwtjp4msoerpa@thread.v2": "Олег Герт",
+    "19:uni01_usvslcsjasgnwsmfpj2tllmrr6avaza5fwdrccxjt4zs4geyb6da@thread.v2": "Ivan Blinov",
+    "19:uni01_w4nvvowtpehhj2fchcpoiwask6znpg3rrins2255pkbukwuegozq@thread.v2": "Анатолий Прохоревич",
+    "19:uni01_v44ytorzlv4qo4s5gr5ve5cmgtqzdzwckfazp7g5buyn4hbaytqq@thread.v2": "Elizaveta Alferieva",
+    "19:uni01_sk66agvqyfefip34jonzmhdodwvk3o7e6juun5dz7zw76ak56bza@thread.v2": "Alexey Kruglikov",
+    "19:uni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq@thread.v2": "Sergey Volkov",
+}
 
 _browser_profile_lock = asyncio.Lock()
 
@@ -248,28 +265,58 @@ async def extract_chats_from_page(page) -> List[Dict[str, Any]]:
         print(f"Error extracting chats from page: {e}")
     return []
 
-async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str = "Authentication") -> List[Dict[str, Any]]:
+def is_valid_chats_cache(cached: list) -> bool:
+    if not cached or not isinstance(cached, list):
+        return False
+    # If any title starts with raw ID or ugly prefix, invalidate cache
+    for c in cached:
+        t = c.get("title", "")
+        if not t or t.startswith("Чат 19:") or t.startswith("19:"):
+            return False
+    return True
+
+async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str = "Authentication", force_refresh: bool = False) -> List[Dict[str, Any]]:
     """
     Fetches the list of active Teams conversations with real human names.
-    Uses local cache if available, or calls the fast chatsvc HTTP API directly.
+    Uses local cache if available and valid, or calls the fast chatsvc HTTP API directly.
     """
-    if os.path.exists(CHATS_CACHE_FILE):
+    if not force_refresh and os.path.exists(CHATS_CACHE_FILE):
         try:
             with open(CHATS_CACHE_FILE, "r", encoding="utf-8") as f:
                 cached = json.load(f)
-            if cached and len(cached) > 0:
+            if is_valid_chats_cache(cached):
                 return cached
         except Exception:
             pass
 
-    # Fast HTTP API fetch
+    # Build known names map from KNOWN_CHAT_NAMES and named_chats.json
+    known_names: Dict[str, str] = dict(KNOWN_CHAT_NAMES)
+    if os.path.exists(NAMED_CHATS_FILE):
+        try:
+            with open(NAMED_CHATS_FILE, "r", encoding="utf-8") as f:
+                for item in json.load(f):
+                    iid = item.get("id")
+                    ititle = item.get("title")
+                    if iid and ititle and not ititle.startswith("19:") and not ititle.startswith("Чат 19:"):
+                        known_names[iid] = ititle
+        except Exception:
+            pass
+
+    settings = await get_all_settings()
     if not auth_token:
-        settings = await get_all_settings()
         auth_token = settings.get("auth_token", "")
         auth_header_name = settings.get("auth_header_name", "Authentication")
 
     if not auth_token:
+        if os.path.exists(NAMED_CHATS_FILE):
+            try:
+                with open(NAMED_CHATS_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
         return []
+
+    my_name = (settings.get("account_name") or "Vladimir Epishin").strip()
 
     headers = {
         auth_header_name: auth_token.strip(),
@@ -287,22 +334,51 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
             convs = data.get("conversations", [])
 
             chat_list = []
+            seen_ids = set()
+
             for c in convs:
                 cid = c.get("id", "")
                 if not cid or cid.startswith("48:notes") or "stream01_" in cid or "streamof" in cid:
                     continue
 
+                seen_ids.add(cid)
                 props = c.get("properties", {})
                 topic = props.get("topic")
 
                 last_msg = c.get("lastMessage", {})
+                last_disp = (last_msg.get("imdisplayname") or "").strip()
                 content = last_msg.get("content", "")
                 clean_content = html.unescape(re.sub(r"<[^>]+>", "", content).strip())
                 if len(clean_content) > 45:
                     clean_content = clean_content[:45] + "..."
 
-                title = topic if topic else f"Чат {cid[:25]}..."
-                full_url = f"https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/{cid}/messages"
+                title = None
+                if cid in known_names:
+                    title = known_names[cid]
+                elif topic and topic != cid:
+                    title = topic
+                elif last_disp and last_disp.lower() not in (my_name.lower(), "vladimir epishin"):
+                    title = last_disp
+                else:
+                    # Fetch recent messages of this conversation to discover the other person's display name
+                    try:
+                        enc_id = urllib.parse.quote(cid, safe="")
+                        m_url = f"https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/{enc_id}/messages?pageSize=10"
+                        mr = await client.get(m_url, headers=headers)
+                        if mr.status_code == 200:
+                            for m in mr.json().get("messages", []):
+                                m_disp = (m.get("imdisplayname") or "").strip()
+                                if m_disp and m_disp.lower() not in (my_name.lower(), "vladimir epishin"):
+                                    title = m_disp
+                                    break
+                    except Exception:
+                        pass
+
+                if not title:
+                    title = "Диалог Teams"
+
+                enc_cid = urllib.parse.quote(cid, safe="")
+                full_url = f"https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/{enc_cid}/messages"
 
                 chat_list.append({
                     "id": cid,
@@ -310,6 +386,22 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
                     "url": full_url,
                     "preview": clean_content
                 })
+
+            # Ensure essential group chats are always present
+            pinned_chats = [
+                ("19:53563ee0e21748c1834f311533c7ab5a@thread.skype", "IT Co. Часы", ""),
+                ("19:aebc4f4bb3f746ce82fc6678d4f36fee@thread.skype", "IT Co. Daily", "Дейли отчёты команды")
+            ]
+            for pid, ptitle, ppreview in reversed(pinned_chats):
+                if pid not in seen_ids:
+                    enc_pid = urllib.parse.quote(pid, safe="")
+                    chat_list.insert(0, {
+                        "id": pid,
+                        "title": ptitle,
+                        "url": f"https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/{enc_pid}/messages",
+                        "preview": ppreview
+                    })
+
             if chat_list:
                 try:
                     with open(CHATS_CACHE_FILE, "w", encoding="utf-8") as f:

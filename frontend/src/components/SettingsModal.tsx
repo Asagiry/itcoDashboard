@@ -11,7 +11,6 @@ import {
   Users,
   User,
   ChevronDown,
-  ChevronRight,
   LogIn
 } from 'lucide-react';
 import { AppSettings, TeamsChat } from '../types';
@@ -60,13 +59,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Search & Picker states for the two chat types
   const [activePicker, setActivePicker] = useState<'director' | 'daily' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showManualDirectorUrl, setShowManualDirectorUrl] = useState(false);
-  const [showManualDailyUrl, setShowManualDailyUrl] = useState(false);
 
-  const loadChats = async () => {
+  const loadChats = async (force: boolean = false) => {
     setIsLoadingChats(true);
     try {
-      const res = await api.getTeamsChats();
+      const res = await api.getTeamsChats(force);
       setTeamsChats(res.chats || []);
     } catch {} finally {
       setIsLoadingChats(false);
@@ -390,7 +387,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <button
                         type="button"
-                        onClick={loadChats}
+                        onClick={() => loadChats(true)}
                         title="Обновить список чатов из Teams"
                         className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                       >
@@ -450,27 +447,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onChange={(e) => setSettings({ ...settings, director_message_template: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
                   />
-                </div>
-
-                {/* Optional Manual URL */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setShowManualDirectorUrl(!showManualDirectorUrl)}
-                    className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer"
-                  >
-                    {showManualDirectorUrl ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                    <span>Указать URL вручную</span>
-                  </button>
-                  {showManualDirectorUrl && (
-                    <input
-                      type="text"
-                      value={settings.director_chat_url}
-                      onChange={(e) => setSettings({ ...settings, director_chat_url: e.target.value })}
-                      className="mt-1.5 w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
-                      placeholder="https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/.../messages"
-                    />
-                  )}
                 </div>
               </div>
 
@@ -533,7 +509,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <button
                         type="button"
-                        onClick={loadChats}
+                        onClick={() => loadChats(true)}
                         title="Обновить список чатов из Teams"
                         className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                       >
@@ -581,27 +557,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
                 )}
-
-                {/* Optional Manual URL */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setShowManualDailyUrl(!showManualDailyUrl)}
-                    className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer"
-                  >
-                    {showManualDailyUrl ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                    <span>Указать URL вручную</span>
-                  </button>
-                  {showManualDailyUrl && (
-                    <input
-                      type="text"
-                      value={settings.daily_chat_url}
-                      onChange={(e) => setSettings({ ...settings, daily_chat_url: e.target.value })}
-                      className="mt-1.5 w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
-                      placeholder="https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/.../messages"
-                    />
-                  )}
-                </div>
               </div>
 
             </div>
