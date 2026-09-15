@@ -85,6 +85,53 @@ def get_chrome_executable_path() -> Optional[str]:
                 return p
     return None
 
+BLOCKED_DOMAINS = (
+    "clarity.ms",
+    "bing.com",
+    "vortex.data.microsoft.com",
+    "browser.events.data.microsoft.com",
+    "pipe.aria.microsoft.com",
+    "bat.bing.com",
+    "googletagmanager.com",
+    "google-analytics.com",
+    "scorecardresearch.com",
+    "adnxs.com",
+    "c.msn.com",
+    "c.bing.com",
+    "telemetry",
+)
+
+async def enable_fast_routing(context_or_page) -> None:
+    """
+    Aborts heavy media (images, fonts, video) and third-party telemetry to accelerate Teams browser operations.
+    """
+    async def route_handler(route):
+        try:
+            req = route.request
+            rtype = req.resource_type
+            url = req.url.lower()
+
+            if rtype in ("image", "font", "media", "imageset"):
+                await route.abort()
+                return
+
+            if any(d in url for d in BLOCKED_DOMAINS):
+                await route.abort()
+                return
+
+            await route.continue_()
+        except Exception:
+            try:
+                await route.continue_()
+            except Exception:
+                pass
+
+    try:
+        await context_or_page.route("**/*", route_handler)
+    except Exception:
+        pass
+
+
 def cleanup_browser_profile_locks():
     """
     Cleans up Chrome profile lock files and any lingering Chrome processes
@@ -545,6 +592,7 @@ async def run_headless_refresh() -> Dict[str, Any]:
                     launch_kwargs["executable_path"] = chrome_exe
 
                 context = await p.chromium.launch_persistent_context(**launch_kwargs)
+                await enable_fast_routing(context)
                 await context.add_init_script("""
                     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
                     window.chrome = { runtime: {} };
@@ -569,27 +617,26 @@ async def run_headless_refresh() -> Dict[str, Any]:
                 context.on("request", on_request)
 
                 page = context.pages[0] if context.pages else await context.new_page()
-                await page.goto("https://teams.live.com/v2/", wait_until="domcontentloaded")
+                try:
+                    await page.goto("https://teams.live.com/v2/", wait_until="domcontentloaded", timeout=12000)
+                except Exception:
+                    pass
 
-                # Ожидаем токен: слушаем сеть и проверяем sessionStorage/localStorage
-                for _ in range(15):
+                # Fast token polling: network listener + sessionStorage check
+                deadline = time.time() + 15.0
+                while time.time() < deadline:
                     if extracted["token"]:
                         break
                     tok = await extract_token_from_storage(page)
                     if tok:
                         extracted = tok
                         break
-                    try:
-                        await asyncio.wait_for(asyncio.shield(token_future), timeout=2.0)
-                        if extracted["token"]:
-                            break
-                    except asyncio.TimeoutError:
-                        pass
+                    await asyncio.sleep(0.12)
 
                 token = extracted["token"]
                 header = extracted["header"]
                 if not token:
-                    return {"success": False, "message": "Сессия Teams в профиле устарела (требуется повторный вход по почте или импорт cURL)."}
+                    return {"success": False, "message": "Сессия Teams в профиле устарела (требуется повторный вход по почте)."}
 
                 await save_settings({
                     "auth_token": token,
@@ -597,7 +644,6 @@ async def run_headless_refresh() -> Dict[str, Any]:
                 })
 
                 # Refresh chats cache
-                await asyncio.sleep(2)
                 await extract_chats_from_page(page)
                 await context.close()
                 context = None
@@ -609,7 +655,7 @@ async def run_headless_refresh() -> Dict[str, Any]:
                     "token_info": info
                 }
         except asyncio.TimeoutError:
-            return {"success": False, "message": "Время ожидания ответа Teams истекло (30с). Сессия Teams в профиле устарела — выполните вход заново."}
+            return {"success": False, "message": "Время ожидания ответа Teams истекло. Сессия Teams в профиле устарела — выполните вход заново."}
         except Exception as e:
             msg = str(e)
             if "Executable doesn't exist" in msg or "executable" in msg.lower():
