@@ -5,7 +5,8 @@ import {
   Settings,
   ShieldCheck,
   CircleDot,
-  LogOut
+  LogOut,
+  Kanban
 } from 'lucide-react';
 import { NavTab, Shift, AuthUser } from '../types';
 
@@ -16,6 +17,7 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onLogout?: () => void;
   user?: AuthUser | null;
+  activeTrackerIssuesCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -25,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onLogout,
   user,
+  activeTrackerIssuesCount,
 }) => {
   const navItems = [
     {
@@ -35,16 +38,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeColor: 'bg-emerald-100 text-emerald-700',
     },
     {
+      id: 'tracker' as NavTab,
+      label: 'Трекер задач',
+      icon: Kanban,
+      badge: activeTrackerIssuesCount && activeTrackerIssuesCount > 0 ? String(activeTrackerIssuesCount) : null,
+      badgeColor: 'bg-blue-100 text-blue-700',
+    },
+    {
       id: 'history' as NavTab,
       label: 'История отчётов',
       icon: ClipboardList,
     },
     {
       id: 'settings' as NavTab,
-      label: 'Настройки Teams',
+      label: 'Настройки',
       icon: Settings,
     },
   ];
+
 
   const getStatusDisplay = () => {
     if (!shift) return { label: 'Загрузка...', color: 'text-slate-400 bg-slate-100' };

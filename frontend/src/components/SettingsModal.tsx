@@ -1,20 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Save,
-  RotateCcw,
-  KeyRound,
-  MessageSquare,
-  RefreshCw,
-  Check,
-  Search,
-  Users,
-  User,
-  ChevronDown,
-  LogIn
-} from 'lucide-react';
-import { AppSettings, TeamsChat } from '../types';
+import { X, Save, MessageSquare, Kanban, RotateCcw } from 'lucide-react';
+import { AppSettings, TeamsChat, TrackerAuthStatus } from '../types';
 import { api } from '../api/client';
+import { TeamsSettingsTab } from './settings/TeamsSettingsTab';
+import { TrackerSettingsTab } from './settings/TrackerSettingsTab';
+import { ShiftResetTab } from './settings/ShiftResetTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -40,43 +30,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     custom_headers: '{}',
   });
 
-  const [activeTab, setActiveTab] = useState<'chats' | 'auth' | 'debug'>('chats');
+  const [activeTab, setActiveTab] = useState<'teams' | 'tracker' | 'reset'>('teams');
   const [isSaving, setIsSaving] = useState(false);
-
   const [teamsChats, setTeamsChats] = useState<TeamsChat[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
-  const [isChangingAccount, setIsChangingAccount] = useState(false);
-  const [isTestingTeams, setIsTestingTeams] = useState(false);
-  const [emailAddr, setEmailAddr] = useState('');
-  const [emailSid, setEmailSid] = useState<string | null>(null);
-  const [emailStage, setEmailStage] = useState<string | null>(null);
-  const [codeInput, setCodeInput] = useState('');
-  const [isEmailBusy, setIsEmailBusy] = useState(false);
-  const [emailOptions, setEmailOptions] = useState<string[]>([]);
-  const [showShot, setShowShot] = useState(false);
-  const [shotKey, setShotKey] = useState(Date.now());
+  const [trackerStatus, setTrackerStatus] = useState<TrackerAuthStatus | null>(null);
 
-  // Search & Picker states for the two chat types
-  const [activePicker, setActivePicker] = useState<'director' | 'daily' | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const loadChats = async (force: boolean = false) => {
-    setIsLoadingChats(true);
+  const loadData = async () => {
     try {
-      const res = await api.getTeamsChats(force);
+      const sett = await api.getSettings();
+      setSettings(sett);
+    } catch {}
+
+    try {
+      setIsLoadingChats(true);
+      const res = await api.getTeamsChats();
       setTeamsChats(res.chats || []);
     } catch {} finally {
       setIsLoadingChats(false);
     }
+
+    try {
+      const st = await api.getTrackerStatus();
+      setTrackerStatus(st);
+    } catch {}
   };
 
   useEffect(() => {
     if (isOpen) {
-      api.getSettings()
-        .then((data) => setSettings(data))
-        .catch((err) => showToast('error', 'Не удалось загрузить настройки', err.message));
-
-      loadChats();
+      loadData();
     }
   }, [isOpen]);
 
@@ -86,8 +68,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsSaving(true);
     try {
       await api.saveSettings(settings);
-      showToast('success', 'Настройки успешно сохранены');
+      showToast('success', 'Настройки сохранены');
       onSettingsSaved();
+      onClose();
     } catch (err: any) {
       showToast('error', 'Ошибка сохранения', err.message);
     } finally {
@@ -95,743 +78,116 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-
-  const handleTestTeams = async () => {
-    setIsTestingTeams(true);
-    try {
-      const res = await api.testTeams('self', 'test ping');
-      if (res.success) {
-        showToast('success', 'Тест прошёл успешно', 'Сообщение "test ping" отправлено в ЛС себе в Teams.');
-      } else {
-        showToast('error', 'Тест не прошёл', res.error || `Статус ${res.status_code}`);
-      }
-    } catch (err: any) {
-      showToast('error', 'Ошибка теста', err.message);
-    } finally {
-      setIsTestingTeams(false);
-    }
-  };
-
-  const handleEmailStart = async () => {
-    if (!emailAddr.trim()) {
-      showToast('error', 'Введите e-mail', 'Нужна почта учётной записи Microsoft.');
-      return;
-    }
-    setIsEmailBusy(true);
-    showToast('info', 'Открываем вход Microsoft', 'Ждём страницу и отправляем код на почту (до ~1 мин)...');
-    try {
-      const res = await api.teamsEmailStart(emailAddr.trim());
-      if (res.session_id) {
-        setEmailSid(res.session_id);
-        setEmailStage(res.stage || null);
-        setEmailOptions((res as any).options || []);
-        setShotKey(Date.now());
-        if (res.stage === 'code_sent') {
-          showToast('success', 'Код отправлен', 'Проверьте почту и введите 6 цифр ниже.');
-        } else {
-          showToast('info', 'Требуется внимание', (res as any).message || 'Проверьте стадию входа.');
-        }
-      } else if (res.success) {
-        showToast('success', 'Уже вошли', res.message);
-        const fresh = await api.getSettings();
-        setSettings(fresh);
-        onSettingsSaved();
-        loadChats();
-      } else {
-        showToast('error', (res as any).stage === 'limited' ? 'Лимит Microsoft' : 'Не удалось начать вход', res.message);
-      }
-    } catch (err: any) {
-      showToast('error', 'Ошибка входа по почте', err.message);
-    } finally {
-      setIsEmailBusy(false);
-    }
-  };
-
-  const handleEmailClick = async (text: string) => {
-    if (!emailSid) return;
-    setIsEmailBusy(true);
-    try {
-      const res = await api.teamsEmailClick(emailSid, [text]);
-      setShotKey(Date.now());
-      if (res.token_info || ((res as any).success && (res as any).message?.includes('сохранен'))) {
-        showToast('success', 'Вход выполнен', res.message);
-        setEmailSid(null);
-        setEmailStage(null);
-        setEmailOptions([]);
-        const fresh = await api.getSettings();
-        setSettings(fresh);
-        onSettingsSaved();
-        loadChats();
-      } else {
-        const opts = (res.page?.buttons || []).concat(res.page?.tiles || []);
-        setEmailOptions(opts.slice(0, 12));
-        showToast('info', 'Действие выполнено', res.message);
-      }
-    } catch (err: any) {
-      showToast('error', 'Ошибка клика', err.message);
-    } finally {
-      setIsEmailBusy(false);
-    }
-  };
-
-  const handleEmailSubmit = async () => {
-    if (!emailSid || !codeInput.trim()) {
-      showToast('error', 'Введите код', 'Код из письма (6 цифр).');
-      return;
-    }
-    setIsEmailBusy(true);
-    try {
-      const res = await api.teamsEmailSubmit(emailSid, codeInput.trim());
-      if (res.success) {
-        showToast('success', 'Вход выполнен', res.message);
-        setEmailSid(null);
-        setEmailStage(null);
-        setEmailOptions([]);
-        setCodeInput('');
-        setShowShot(false);
-        setIsChangingAccount(false);
-        const fresh = await api.getSettings();
-        setSettings(fresh);
-        onSettingsSaved();
-        loadChats();
-      } else {
-        showToast('error', 'Код не принят', res.message);
-        setShotKey(Date.now());
-      }
-    } catch (err: any) {
-      showToast('error', 'Ошибка проверки кода', err.message);
-    } finally {
-      setIsEmailBusy(false);
-    }
-  };
-
-  const handleEmailCancel = async () => {
-    if (emailSid) {
-      try {
-        await api.teamsEmailCancel(emailSid);
-      } catch {}
-    }
-    setEmailSid(null);
-    setEmailStage(null);
-    setEmailOptions([]);
-    setCodeInput('');
-    setShowShot(false);
-    setIsChangingAccount(false);
-  };
-
-  const findChatByUrl = (url: string) => {
-    if (!url) return null;
-    return teamsChats.find((c) => {
-      if (c.url === url) return true;
-      const getConvId = (u: string) => {
-        const m = u.match(/conversations\/([^/]+)/);
-        return m ? decodeURIComponent(m[1]) : '';
-      };
-      const id1 = getConvId(c.url);
-      const id2 = getConvId(url);
-      return id1 && id2 && id1 === id2;
-    }) || null;
-  };
-
-  const isGroupChat = (chat: TeamsChat) => {
-    return chat.id.includes('@thread.skype') || chat.title.includes('IT Co') || chat.title.toLowerCase().includes('чат') || chat.title.toLowerCase().includes('daily');
-  };
-
-  const selectedDirectorChat = findChatByUrl(settings.director_chat_url);
-  const selectedDailyChat = findChatByUrl(settings.daily_chat_url);
-
-  const filteredChats = teamsChats.filter((c) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return c.title.toLowerCase().includes(q) || (c.preview && c.preview.toLowerCase().includes(q));
-  });
-
-  const selectChatFor = (chat: TeamsChat, target: 'director' | 'daily') => {
-    if (target === 'director') {
-      const updated = { ...settings, director_chat_url: chat.url };
-      setSettings(updated);
-      api.saveSettings(updated);
-      onSettingsSaved();
-      showToast('success', 'Чат руководителя выбран', chat.title);
-    } else {
-      const updated = { ...settings, daily_chat_url: chat.url };
-      setSettings(updated);
-      api.saveSettings(updated);
-      onSettingsSaved();
-      showToast('success', 'Чат отчётов команды выбран', chat.title);
-    }
-    setActivePicker(null);
-    setSearchQuery('');
-  };
-
-  const isTeamsConnected = !!settings.auth_token && settings.token_info?.is_expired !== true;
-  const showLoginForm = !isTeamsConnected || isChangingAccount;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 w-full max-w-2xl flex flex-col max-h-[88vh] overflow-hidden">
-        
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Настройки интеграции Teams</h3>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        className="w-[740px] h-[640px] min-h-[640px] max-h-[640px] max-w-[94vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900">Настройки</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tab Bar */}
-        <div className="px-6 border-b border-slate-100 flex gap-2 shrink-0 bg-slate-50/50">
+        {/* Tab Navigation */}
+        <div className="px-6 pt-3 border-b border-slate-100 bg-slate-50/50 flex gap-2 shrink-0">
           <button
-            onClick={() => { setActiveTab('chats'); setActivePicker(null); }}
-            className={`py-3 px-3.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'chats'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
+            onClick={() => setActiveTab('teams')}
+            className={`px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'teams'
+                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Чаты Teams</span>
+            <MessageSquare className="w-4 h-4" />
+            <span>Microsoft Teams</span>
           </button>
+
           <button
-            onClick={() => { setActiveTab('auth'); setActivePicker(null); }}
-            className={`py-3 px-3.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'auth'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
+            onClick={() => setActiveTab('tracker')}
+            className={`px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'tracker'
+                ? 'border-rose-600 text-rose-600 bg-white shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span>Авторизация</span>
+            <Kanban className="w-4 h-4" />
+            <span>ITCO Tracker</span>
           </button>
+
           <button
-            onClick={() => { setActiveTab('debug'); setActivePicker(null); }}
-            className={`py-3 px-3.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'debug'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
+            onClick={() => setActiveTab('reset')}
+            className={`px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'reset'
+                ? 'border-amber-600 text-amber-600 bg-white shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-4 h-4" />
             <span>Сброс смены</span>
           </button>
         </div>
 
-        {/* Content Area */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
-          
-          {/* TAB 1: CHATS */}
-          {activeTab === 'chats' && (
-            <div className="space-y-6">
-              
-              {/* Director Chat Card */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-bold text-slate-900 text-sm">
-                    1. Чат с руководителем
-                  </div>
-                  <span className="text-[11px] text-slate-400">
-                    кнопка «Я на смене»
-                  </span>
-                </div>
-
-                {/* Selected Chat Box */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
-                      {selectedDirectorChat && isGroupChat(selectedDirectorChat) ? (
-                        <Users className="w-4 h-4" />
-                      ) : (
-                        <User className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-slate-900 text-xs truncate">
-                        {selectedDirectorChat ? selectedDirectorChat.title : (settings.director_chat_url ? 'Диалог выбран' : 'Диалог не выбран')}
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate">
-                        {selectedDirectorChat?.preview ? `«${selectedDirectorChat.preview}»` : (settings.director_chat_url ? 'Пользовательский URL' : 'Выберите диалог из списка Teams')}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActivePicker(activePicker === 'director' ? null : 'director');
-                      setSearchQuery('');
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold shrink-0 transition-colors flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>{selectedDirectorChat || settings.director_chat_url ? 'Сменить' : 'Выбрать'}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                  </button>
-                </div>
-
-                {/* Inline Dialog Picker for Director */}
-                {activePicker === 'director' && (
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 space-y-2.5 animate-in fade-in duration-150">
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50/50">
-                      <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Поиск по диалогам и коллегам..."
-                        className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => loadChats(true)}
-                        title="Обновить список чатов из Teams"
-                        className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingChats ? 'animate-spin' : ''}`} />
-                      </button>
-                    </div>
-
-                    <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 pr-1">
-                      {filteredChats.length > 0 ? (
-                        filteredChats.map((chat) => {
-                          const isSelected = selectedDirectorChat?.id === chat.id || settings.director_chat_url === chat.url;
-                          return (
-                            <button
-                              key={chat.id}
-                              type="button"
-                              onClick={() => selectChatFor(chat, 'director')}
-                              className={`w-full text-left p-2 rounded-lg flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
-                                isSelected ? 'bg-blue-50/80 text-blue-900' : 'hover:bg-slate-50 text-slate-700'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                                  isGroupChat(chat) ? 'bg-slate-100 text-slate-600' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {isGroupChat(chat) ? <Users className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-xs truncate">{chat.title}</div>
-                                  {chat.preview && (
-                                    <div className="text-[10px] text-slate-400 truncate max-w-sm">
-                                      {chat.preview}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="py-4 text-center text-slate-400 text-xs">
-                          {isLoadingChats ? 'Загрузка диалогов...' : 'Диалоги не найдены'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Message Template */}
-                <div>
-                  <label className="block text-slate-600 font-medium mb-1">
-                    Текст утреннего сообщения:
-                  </label>
-                  <input
-                    type="text"
-                    value={settings.director_message_template}
-                    onChange={(e) => setSettings({ ...settings, director_message_template: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* Daily Report Chat Card */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-bold text-slate-900 text-sm">
-                    2. Чат отчётов команды
-                  </div>
-                  <span className="text-[11px] text-slate-400">
-                    кнопка «Завершить смену»
-                  </span>
-                </div>
-
-                {/* Selected Chat Box */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
-                      {selectedDailyChat && isGroupChat(selectedDailyChat) ? (
-                        <Users className="w-4 h-4" />
-                      ) : (
-                        <User className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-slate-900 text-xs truncate">
-                        {selectedDailyChat ? selectedDailyChat.title : (settings.daily_chat_url ? 'Диалог выбран' : 'Диалог не выбран')}
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate">
-                        {selectedDailyChat?.preview ? `«${selectedDailyChat.preview}»` : (settings.daily_chat_url ? 'Пользовательский URL' : 'Выберите диалог для ежедневных отчётов')}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActivePicker(activePicker === 'daily' ? null : 'daily');
-                      setSearchQuery('');
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold shrink-0 transition-colors flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>{selectedDailyChat || settings.daily_chat_url ? 'Сменить' : 'Выбрать'}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                  </button>
-                </div>
-
-                {/* Inline Dialog Picker for Daily */}
-                {activePicker === 'daily' && (
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 space-y-2.5 animate-in fade-in duration-150">
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50/50">
-                      <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Поиск по диалогам..."
-                        className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => loadChats(true)}
-                        title="Обновить список чатов из Teams"
-                        className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingChats ? 'animate-spin' : ''}`} />
-                      </button>
-                    </div>
-
-                    <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 pr-1">
-                      {filteredChats.length > 0 ? (
-                        filteredChats.map((chat) => {
-                          const isSelected = selectedDailyChat?.id === chat.id || settings.daily_chat_url === chat.url;
-                          return (
-                            <button
-                              key={chat.id}
-                              type="button"
-                              onClick={() => selectChatFor(chat, 'daily')}
-                              className={`w-full text-left p-2 rounded-lg flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
-                                isSelected ? 'bg-emerald-50/80 text-emerald-900' : 'hover:bg-slate-50 text-slate-700'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                                  isGroupChat(chat) ? 'bg-slate-100 text-slate-600' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {isGroupChat(chat) ? <Users className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-xs truncate">{chat.title}</div>
-                                  {chat.preview && (
-                                    <div className="text-[10px] text-slate-400 truncate max-w-sm">
-                                      {chat.preview}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              {isSelected && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="py-4 text-center text-slate-400 text-xs">
-                          {isLoadingChats ? 'Загрузка диалогов...' : 'Диалоги не найдены'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
+        {/* Tab Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          {activeTab === 'teams' && (
+            <TeamsSettingsTab
+              settings={settings}
+              setSettings={setSettings}
+              teamsChats={teamsChats}
+              isLoadingChats={isLoadingChats}
+              onRefreshChats={() => loadData()}
+              showToast={showToast}
+            />
           )}
 
-          {/* TAB 2: AUTH */}
-          {activeTab === 'auth' && (
-            <div className="space-y-4">
-              <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4">
-                
-                {/* Если пользователь авторизован — показываем статус аккаунта и кнопку смены */}
-                {!showLoginForm ? (
-                  <div className="space-y-4">
-                    {/* Account Top Row */}
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm tracking-wide shrink-0">
-                          {(settings.account_name || 'Teams')
-                            .split(' ')
-                            .map((p) => p[0])
-                            .filter(Boolean)
-                            .join('')
-                            .slice(0, 2)
-                            .toUpperCase() || 'TM'}
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-slate-900">
-                            {settings.account_name || 'Пользователь Teams'}
-                          </div>
-                          <div className="text-[11px] text-slate-400 font-mono">
-                            {settings.token_info?.skypeid || 'Сессия Teams активна'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          Активен
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Session Details */}
-                    <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <div className="text-slate-400 text-[11px] mb-0.5">Сессия Teams:</div>
-                        <div className="font-semibold text-slate-800">
-                          Бессрочно (Запомнить меня)
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-slate-400 text-[11px] mb-0.5">Авто-продление:</div>
-                        <div className="font-semibold text-emerald-700 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          Активно в фоне
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions: Тест ping в ЛС себе + Сменить аккаунт */}
-                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2.5">
-                      <button
-                        type="button"
-                        onClick={handleTestTeams}
-                        disabled={isTestingTeams}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        <span>{isTestingTeams ? 'Отправка...' : 'Тест подключения (test ping в ЛС себе)'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsChangingAccount(true)}
-                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <LogIn className="w-3.5 h-3.5" />
-                        <span>Сменить аккаунт</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Форма входа по коду из письма (показывается когда не залогинен или нажата «Сменить аккаунт») */
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                      <div className="text-xs font-bold text-slate-900">
-                        {isChangingAccount ? 'Смена учётной записи Teams' : 'Вход по коду из письма'}
-                      </div>
-                      {isChangingAccount && !emailSid && (
-                        <button
-                          type="button"
-                          onClick={() => setIsChangingAccount(false)}
-                          className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
-                        >
-                          Вернуться
-                        </button>
-                      )}
-                    </div>
-
-                    {!emailSid ? (
-                      <div className="space-y-2">
-                        <div className="text-[11px] text-slate-500">
-                          Укажите e-mail учётной записи Microsoft. На него придёт одноразовый код:
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            type="email"
-                            value={emailAddr}
-                            onChange={(e) => setEmailAddr(e.target.value)}
-                            placeholder="name@it-co.ru"
-                            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleEmailStart}
-                            disabled={isEmailBusy}
-                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                          >
-                            <span>{isEmailBusy ? 'Ждём Microsoft...' : 'Отправить код'}</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Статус / Сообщение */}
-                        <div className={`text-[11px] p-2.5 rounded-lg border leading-relaxed ${
-                          emailStage === 'code_sent'
-                            ? 'text-blue-800 bg-blue-50 border-blue-200'
-                            : emailStage === 'limited'
-                            ? 'text-red-800 bg-red-50 border-red-200'
-                            : 'text-amber-800 bg-amber-50 border-amber-200'
-                        }`}>
-                          {emailStage === 'code_sent' && `Код отправлен на ${emailAddr}. Введите 6 цифр из письма.`}
-                          {emailStage === 'limited' && 'Microsoft временно ограничил отправку кодов (слишком частые запросы). Подождите 30–60 минут или выберите другой способ.'}
-                          {emailStage !== 'code_sent' && emailStage !== 'limited' && (
-                            `Microsoft ожидает подтверждения (стадия: ${emailStage || 'проверка'}). Если код уже пришёл — введите его ниже, либо выберите вариант действия.`
-                          )}
-                        </div>
-
-                        {/* Кнопки вариантов от Microsoft если есть */}
-                        {emailOptions.length > 0 && (
-                          <div className="space-y-1">
-                            <div className="text-[10px] text-slate-500 font-medium">Варианты от Microsoft:</div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {emailOptions.map((opt, i) => (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={() => handleEmailClick(opt)}
-                                  disabled={isEmailBusy}
-                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
-                                >
-                                  {opt}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Поле ввода кода доступно ВСЕГДА при наличии активного emailSid */}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={codeInput}
-                            onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                            placeholder="123456"
-                            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            onClick={handleEmailSubmit}
-                            disabled={isEmailBusy}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                          >
-                            <span>{isEmailBusy ? 'Проверяем...' : 'Войти'}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleEmailCancel}
-                            disabled={isEmailBusy}
-                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                          >
-                            <span>Отмена</span>
-                          </button>
-                        </div>
-
-                        {/* Переключатель просмотра снимка экрана */}
-                        <div className="flex items-center justify-between pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setShowShot(!showShot)}
-                            className="text-[11px] text-blue-600 hover:underline cursor-pointer"
-                          >
-                            {showShot ? 'Скрыть снимок экрана' : 'Показать снимок экрана Microsoft'}
-                          </button>
-                          {showShot && (
-                            <button
-                              type="button"
-                              onClick={() => setShotKey(Date.now())}
-                              className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
-                            >
-                              Обновить снимок
-                            </button>
-                          )}
-                        </div>
-
-                        {showShot && (
-                          <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto bg-slate-50">
-                            <img
-                              src={`/api/auth/teams-email/shot/${emailSid}?t=${shotKey}`}
-                              alt="Microsoft login screen"
-                              className="w-full object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </div>
-            </div>
+          {activeTab === 'tracker' && (
+            <TrackerSettingsTab
+              trackerStatus={trackerStatus}
+              onRefreshStatus={() => loadData()}
+              showToast={showToast}
+            />
           )}
 
-          {/* TAB 3: DEBUG */}
-          {activeTab === 'debug' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/40 space-y-3">
-                <h4 className="font-bold text-rose-950 text-sm">
-                  Сброс статуса смены за сегодня
-                </h4>
-                <p className="text-xs text-rose-800/80">
-                  Удаляет запись смены за текущую дату и возвращает статус к «Смена не начата».
-                </p>
-                <button
-                  onClick={async () => {
-                    await onResetTodayShift();
-                    onClose();
-                  }}
-                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Сбросить статус дня</span>
-                </button>
-              </div>
-            </div>
+          {activeTab === 'reset' && (
+            <ShiftResetTab
+              onResetTodayShift={onResetTodayShift}
+              showToast={showToast}
+            />
           )}
-
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
+        {/* Modal Footer */}
+        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end gap-2 shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-white transition-colors cursor-pointer"
+            className="px-4 py-2 border border-slate-200 hover:bg-white text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
           >
-            Закрыть
+            Отмена
           </button>
 
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{isSaving ? 'Сохранение...' : 'Сохранить'}</span>
           </button>
         </div>
-
       </div>
     </div>
   );
 };
+export default SettingsModal;

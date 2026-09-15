@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import unittest
+from datetime import datetime
 
 libs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "libs"))
 if libs_dir not in sys.path:
@@ -20,7 +21,7 @@ from backend.app.database import (
 )
 from backend.app.curl_parser import parse_curl_command
 from backend.app.teams_client import format_message_for_teams
-from backend.app.main import app
+from backend.app.main import app, MOSCOW_TZ
 from starlette.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 
@@ -35,10 +36,11 @@ class BackendTestCase(unittest.TestCase):
         cls.mock_token = cls.patch_token.start()
         cls.mock_token.return_value = ("Authentication", "mock_token_123")
 
+        cls.patch_tracker_status = patch("backend.app.tracker_client._apply_status_change_in_tracker", new_callable=AsyncMock)
+        cls.mock_tracker_status = cls.patch_tracker_status.start()
+
         asyncio.run(init_db())
         cls.client = TestClient(app)
-        # Auth middleware requires Bearer token for /api/* (except /api/auth/login).
-        # Login with default dev credentials and attach token to the test client.
         login_resp = cls.client.post(
             "/api/auth/login",
             json={"username": "vepishin", "password": "itcodevelopment"},
@@ -51,6 +53,7 @@ class BackendTestCase(unittest.TestCase):
     def tearDownClass(cls):
         cls.patch_send.stop()
         cls.patch_token.stop()
+        cls.patch_tracker_status.stop()
         db_path = os.environ["DATABASE_PATH"]
         if os.path.exists(db_path):
             os.remove(db_path)
@@ -151,7 +154,6 @@ class BackendTestCase(unittest.TestCase):
         self.assertIn("total_month_earned_live", data)
 
     def test_06_update_and_delete_shift(self):
-        # Update shift date
         test_date = "2026-09-01"
         r = self.client.put(f"/api/shifts/{test_date}", json={
             "start_time": "10:00:00",
@@ -168,22 +170,16 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(data["shift"]["status"], "completed")
         self.assertEqual(data["shift"]["report_status"], "sent")
 
-        # Delete shift
         r = self.client.delete(f"/api/shifts/{test_date}")
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json()["success"])
 
     def test_07_scheduled_shift_report_logic(self):
-        from datetime import datetime
-        from backend.app.main import MOSCOW_TZ
-
-        # 1. Reset today
         self.client.post("/api/shifts/reset-today")
         self.client.post("/api/shifts/start")
 
-        # Set shift to 17:35 MSK, rounded end 18:00:00 -> should schedule
         fake_now = datetime(2026, 9, 15, 17, 35, 0, tzinfo=MOSCOW_TZ)
-        with patch("backend.app.main.get_now_dt", return_value=fake_now):
+        with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_now):
             r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет в 17:35"})
             self.assertEqual(r.status_code, 200)
             data = r.json()
@@ -194,7 +190,6 @@ class BackendTestCase(unittest.TestCase):
             self.assertEqual(data["shift"]["report_scheduled_at"], "18:00:00")
             self.assertIn("18:00", data["message"])
 
-        # 2. Trigger send-report-now
         r = self.client.post("/api/shifts/send-report-now")
         self.assertEqual(r.status_code, 200)
         data = r.json()
@@ -202,17 +197,81 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(data["shift"]["report_status"], "sent")
         self.assertIsNotNone(data["shift"]["report_sent_at"])
 
-        # 3. Test ending at exact 18:00:00 -> sends immediately
         self.client.post("/api/shifts/reset-today")
         self.client.post("/api/shifts/start")
         fake_1800 = datetime(2026, 9, 15, 18, 0, 0, tzinfo=MOSCOW_TZ)
-        with patch("backend.app.main.get_now_dt", return_value=fake_1800):
+        with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_1800):
             r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет ровно в 18:00"})
             self.assertEqual(r.status_code, 200)
             data = r.json()
             self.assertTrue(data["success"])
             self.assertEqual(data["shift"]["status"], "completed")
             self.assertEqual(data["shift"]["report_status"], "sent")
+
+    def test_08_tracker_endpoints(self):
+        from backend.app.database import save_tracker_projects, save_tracker_issues
+
+        asyncio.run(save_tracker_projects([
+            {"id": "itco", "key": "ITCO", "name": "ITCO Dashboard", "color": "#3b82f6"},
+            {"id": "mobile", "key": "MOB", "name": "Mobile App", "color": "#10b981"}
+        ]))
+
+        asyncio.run(save_tracker_issues([
+            {
+                "id": "ITCO-101",
+                "key": "ITCO-101",
+                "title": "Добавить трекер задач",
+                "project_id": "itco",
+                "project_key": "ITCO",
+                "project_name": "ITCO Dashboard",
+                "status": "in_progress",
+                "priority": "high",
+                "tracker_url": "https://tracker.itco.su/workbench/itco/tracker/ITCO-101"
+            },
+            {
+                "id": "ITCO-102",
+                "key": "ITCO-102",
+                "title": "Сделать смену статусов",
+                "project_id": "itco",
+                "project_key": "ITCO",
+                "project_name": "ITCO Dashboard",
+                "status": "todo",
+                "priority": "normal",
+                "tracker_url": "https://tracker.itco.su/workbench/itco/tracker/ITCO-102"
+            }
+        ]))
+
+        r = self.client.get("/api/tracker/status")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["workspace"], "itco")
+
+        r = self.client.get("/api/tracker/projects")
+        self.assertEqual(r.status_code, 200)
+        projects = r.json()
+        self.assertGreaterEqual(len(projects), 2)
+
+        r = self.client.get("/api/tracker/issues")
+        self.assertEqual(r.status_code, 200)
+        issues = r.json()
+        self.assertGreaterEqual(len(issues), 2)
+
+        r = self.client.post("/api/tracker/issues/ITCO-102/status", json={"status": "in_progress"})
+        self.assertEqual(r.status_code, 200)
+        res = r.json()
+        self.assertTrue(res["success"])
+        self.assertEqual(res["issue"]["status"], "in_progress")
+
+    def test_09_tracker_status_normalization(self):
+        from backend.app.tracker_client import normalize_tracker_status
+        self.assertEqual(normalize_tracker_status("К выполнению"), "todo")
+        self.assertEqual(normalize_tracker_status("В работе"), "in_progress")
+        self.assertEqual(normalize_tracker_status("Готово к тестированию"), "ready_for_testing")
+        self.assertEqual(normalize_tracker_status("Тестирование"), "testing")
+        self.assertEqual(normalize_tracker_status("Ревью"), "review")
+        self.assertEqual(normalize_tracker_status("Готово к мержу"), "ready_to_merge")
+        self.assertEqual(normalize_tracker_status("Done"), "ready_to_merge")
 
 if __name__ == "__main__":
     unittest.main()

@@ -44,6 +44,10 @@ def is_email_login_active() -> bool:
     return EMAIL_LOGIN_ACTIVE
 
 
+def has_browser_profile() -> bool:
+    return os.path.exists(PROFILE_DIR) and len(os.listdir(PROFILE_DIR)) > 0
+
+
 def container_chrome_args() -> list:
     """Флаги для запуска Chromium от root внутри Docker (иначе не стартует)."""
     try:

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ShiftView } from './components/ShiftView';
+import { TrackerView } from './components/TrackerView';
 import { HistoryView } from './components/HistoryView';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginView } from './components/LoginView';
 import { ToastContainer } from './components/Toast';
-import { NavTab, Shift, ToastMessage, AuthUser } from './types';
+import { NavTab, Shift, ToastMessage, AuthUser, TrackerIssue } from './types';
 import { api, AUTH_TOKEN_KEY } from './api/client';
 import { useDynamicTitle } from './hooks/useDynamicTitle';
 
@@ -14,12 +15,20 @@ export const App: React.FC = () => {
     return !!localStorage.getItem(AUTH_TOKEN_KEY);
   });
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [currentTab, setCurrentTab] = useState<NavTab>('shift');
+  const [currentTab, setCurrentTab] = useState<NavTab>(() => {
+    const saved = localStorage.getItem('itco_active_tab');
+    if (saved && ['shift', 'tracker', 'history', 'excel', 'settings'].includes(saved)) {
+      return saved as NavTab;
+    }
+    return 'shift';
+  });
   const [shift, setShift] = useState<Shift | null>(null);
   const [history, setHistory] = useState<Shift[]>([]);
+  const [trackerIssues, setTrackerIssues] = useState<TrackerIssue[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
 
   useDynamicTitle(isAuthenticated ? shift : null);
 
@@ -171,15 +180,23 @@ export const App: React.FC = () => {
     );
   }
 
+  const activeTrackerIssuesCount = trackerIssues.filter(
+    (i) => i.status === 'in_progress' || i.status === 'todo'
+  ).length;
+
   return (
     <div className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 antialiased overflow-hidden font-sans">
       <Sidebar
         currentTab={currentTab}
-        onSelectTab={(tab) => setCurrentTab(tab)}
+        onSelectTab={(tab) => {
+          setCurrentTab(tab);
+          localStorage.setItem('itco_active_tab', tab);
+        }}
         shift={shift}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onLogout={() => api.logout()}
         user={user}
+        activeTrackerIssuesCount={activeTrackerIssuesCount}
       />
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
@@ -193,6 +210,13 @@ export const App: React.FC = () => {
             onRefreshShift={loadTodayShift}
             onOpenSettings={() => setIsSettingsOpen(true)}
             isLoading={isLoading}
+          />
+        )}
+
+        {currentTab === 'tracker' && (
+          <TrackerView
+            showToast={showToast}
+            onIssuesUpdated={(updatedIssues) => setTrackerIssues(updatedIssues)}
           />
         )}
 

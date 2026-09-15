@@ -33,7 +33,7 @@ class ShiftSchema(BaseModel):
     daily_report: Optional[str] = ""
     raw_response_start: Optional[str] = None
     raw_response_end: Optional[str] = None
-    report_status: str = Field("not_scheduled", description="not_scheduled | scheduled | sending | sent | failed")
+    report_status: Optional[str] = Field("not_scheduled", description="not_scheduled | scheduled | sending | sent | failed")
     report_scheduled_at: Optional[str] = None
     report_sent_at: Optional[str] = None
     created_at: Optional[str] = None
@@ -49,17 +49,17 @@ class StartShiftResponse(BaseModel):
 class EndShiftRequest(BaseModel):
     daily_report: str = Field(..., description="Текст отчета за рабочий день")
 
-class SaveDraftRequest(BaseModel):
-    daily_report: str = Field(..., description="Текст черновика отчета")
-
-class EndShiftResponse(BaseModel):
+class SendReportNowResponse(BaseModel):
     success: bool
     shift: ShiftSchema
     message: str
     teams_status_code: Optional[int] = None
     teams_response: Optional[str] = None
 
-class SendReportNowResponse(BaseModel):
+class SaveDraftRequest(BaseModel):
+    daily_report: str = Field(..., description="Текст черновика отчета")
+
+class EndShiftResponse(BaseModel):
     success: bool
     shift: ShiftSchema
     message: str
@@ -94,9 +94,9 @@ class UpdateShiftRequest(BaseModel):
     duration_hours: Optional[float] = Field(None, description="Длительность смены в часах (например, 8.0)")
     daily_report: Optional[str] = Field(None, description="Текст ежедневного отчета")
     status: Optional[str] = Field(None, description="Статус смены: not_started, in_progress, completed")
-    report_status: Optional[str] = Field(None, description="Статус отправки отчета: not_scheduled, scheduled, sending, sent, failed")
-    report_scheduled_at: Optional[str] = Field(None, description="Запланированное время отправки отчета")
-    report_sent_at: Optional[str] = Field(None, description="Время фактической отправки отчета")
+    report_status: Optional[str] = Field(None, description="Статус отправки отчёта: not_scheduled, scheduled, sending, sent, failed")
+    report_scheduled_at: Optional[str] = Field(None, description="Запланированное время отправки (HH:MM:SS)")
+    report_sent_at: Optional[str] = Field(None, description="Фактическое время отправки отчёта (HH:MM:SS)")
 
 class UpdateShiftResponse(BaseModel):
     success: bool
@@ -111,3 +111,82 @@ class TeamsEmailSubmitRequest(BaseModel):
     code: str = Field(..., description="Одноразовый код из письма")
     remember_me: bool = Field(True, description="Отметить 'запомнить меня' (KMSI)")
 
+# --- Tracker Schemas ---
+
+class TrackerProjectSchema(BaseModel):
+    id: str
+    key: str
+    name: str
+    description: Optional[str] = ""
+    color: Optional[str] = "#3b82f6"
+    updated_at: Optional[str] = None
+
+class TrackerIssueSchema(BaseModel):
+    id: str
+    key: str
+    title: str
+    description: Optional[str] = ""
+    project_id: Optional[str] = ""
+    project_key: Optional[str] = ""
+    project_name: Optional[str] = ""
+    status: str = Field("todo", description="todo | in_progress | ready_for_testing | testing | review | ready_to_merge")
+    assignee: Optional[str] = ""
+    priority: Optional[str] = "normal"
+    component: Optional[str] = ""
+    milestone: Optional[str] = ""
+    is_bug: Optional[bool] = False
+    time_spent: Optional[str] = ""
+    comments_count: Optional[int] = 0
+    attachments_count: Optional[int] = 0
+    attachments_json: Optional[str] = "[]"
+    tracker_url: Optional[str] = ""
+    raw_data: Optional[str] = "{}"
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+class TrackerStatusUpdateRequest(BaseModel):
+    status: str = Field(..., description="Новый статус задачи: todo, in_progress, ready_for_testing, testing, review, ready_to_merge")
+
+class TrackerStatusUpdateResponse(BaseModel):
+    success: bool
+    message: str
+    issue: Optional[TrackerIssueSchema] = None
+
+class TrackerSyncResponse(BaseModel):
+    success: bool
+    message: str
+    projects_count: int = 0
+    issues_count: int = 0
+    projects: List[TrackerProjectSchema] = []
+    issues: List[TrackerIssueSchema] = []
+    logs: List[str] = []
+
+class TrackerAuthStatusResponse(BaseModel):
+    success: bool
+    is_authenticated: bool
+    account_name: Optional[str] = ""
+    workspace: Optional[str] = "itco"
+    tracker_url: Optional[str] = ""
+    last_sync: Optional[str] = ""
+
+class TrackerPasswordLoginRequest(BaseModel):
+    email: str = Field(..., description="E-mail пользователя ITCO Tracker")
+    password: str = Field(..., description="Пароль пользователя")
+
+class TrackerPasswordLoginResponse(BaseModel):
+    success: bool
+    message: str
+    account_name: Optional[str] = ""
+    issues_count: int = 0
+    logs: List[str] = []
+
+class TrackerCodeStartRequest(BaseModel):
+    email: str = Field(..., description="E-mail пользователя ITCO Tracker")
+
+class TrackerCodeSubmitRequest(BaseModel):
+    session_id: str = Field(..., description="ID сессии входа")
+    code: str = Field(..., description="Одноразовый код из письма")
+
+class TrackerLogsResponse(BaseModel):
+    success: bool
+    logs: List[Dict[str, Any]] = []

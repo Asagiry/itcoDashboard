@@ -80,7 +80,7 @@ export interface TeamsChat {
   preview?: string;
 }
 
-export type NavTab = 'shift' | 'history' | 'excel' | 'settings';
+export type NavTab = 'shift' | 'tracker' | 'history' | 'excel' | 'settings';
 
 export interface ToastMessage {
   id: string;
@@ -116,4 +116,82 @@ export interface LoginResponse {
   token: string;
   user: AuthUser;
 }
+
+// --- Tracker Types ---
+
+export type TrackerStatus =
+  | 'todo'
+  | 'in_progress'
+  | 'ready_for_testing'
+  | 'testing'
+  | 'review'
+  | 'ready_to_merge';
+
+export interface TrackerProject {
+  id: string;
+  key: string;
+  name: string;
+  description?: string;
+  color?: string;
+  updated_at?: string;
+}
+
+export interface TrackerIssue {
+  id: string;
+  key: string;
+  title: string;
+  description?: string;
+  project_id?: string;
+  project_key?: string;
+  project_name?: string;
+  status: TrackerStatus;
+  assignee?: string;
+  priority?: string;
+  component?: string;
+  milestone?: string;
+  is_bug?: boolean;
+  time_spent?: string;
+  comments_count?: number;
+  attachments_count?: number;
+  attachments_json?: string;
+  attachments?: string[];
+  tracker_url?: string;
+  raw_data?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TrackerAuthStatus {
+  success: boolean;
+  is_authenticated: boolean;
+  account_name?: string;
+  workspace?: string;
+  tracker_url?: string;
+  last_sync?: string;
+}
+
+export interface TrackerSyncResponse {
+  success: boolean;
+  message: string;
+  projects_count: number;
+  issues_count: number;
+  projects: TrackerProject[];
+  issues: TrackerIssue[];
+  logs?: string[];
+}
+
+export interface TrackerLoginResult {
+  success: boolean;
+  message: string;
+  account_name?: string;
+  issues_count?: number;
+  logs?: string[];
+}
+
+export interface TrackerLogItem {
+  time: string;
+  message: string;
+  level: string;
+}
+
 

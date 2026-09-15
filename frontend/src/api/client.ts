@@ -146,6 +146,11 @@ export const api = {
       method: 'DELETE',
     }),
 
+  resetAllData: (): Promise<{ success: boolean; message: string }> =>
+    fetchJson(`${API_BASE}/shifts/reset-all-data`, {
+      method: 'POST',
+    }),
+
   login: (username: string, password: string): Promise<LoginResponse> =>
     fetchJson<LoginResponse>(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -159,4 +164,59 @@ export const api = {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     window.dispatchEvent(new Event('itco_unauthorized'));
   },
+
+  // --- Tracker API Methods ---
+
+  getTrackerStatus: (): Promise<import('../types').TrackerAuthStatus> =>
+    fetchJson<import('../types').TrackerAuthStatus>(`${API_BASE}/tracker/status`),
+
+  trackerLogin: (): Promise<{ success: boolean; message: string; account_name?: string }> =>
+    fetchJson(`${API_BASE}/tracker/login`, { method: 'POST' }),
+
+  trackerPasswordLogin: (email: string, password: string): Promise<import('../types').TrackerLoginResult> =>
+    fetchJson<import('../types').TrackerLoginResult>(`${API_BASE}/tracker/auth/password-login`, {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  getTrackerLogs: (): Promise<{ success: boolean; logs: import('../types').TrackerLogItem[] }> =>
+    fetchJson(`${API_BASE}/tracker/logs`),
+
+  trackerCodeStart: (email: string): Promise<{ success: boolean; message: string; session_id?: string }> =>
+    fetchJson(`${API_BASE}/tracker/auth/code-start`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  trackerCodeSubmit: (session_id: string, code: string): Promise<{ success: boolean; message: string; account_name?: string }> =>
+    fetchJson(`${API_BASE}/tracker/auth/code-submit`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id, code }),
+    }),
+
+  trackerLogout: (): Promise<{ success: boolean; message: string }> =>
+    fetchJson(`${API_BASE}/tracker/logout`, { method: 'POST' }),
+
+
+  getTrackerProjects: (): Promise<import('../types').TrackerProject[]> =>
+    fetchJson<import('../types').TrackerProject[]>(`${API_BASE}/tracker/projects`),
+
+  getTrackerIssues: (projectKey?: string, status?: string, search?: string): Promise<import('../types').TrackerIssue[]> => {
+    const params = new URLSearchParams();
+    if (projectKey && projectKey !== 'all') params.append('project_key', projectKey);
+    if (status && status !== 'all') params.append('status', status);
+    if (search && search.trim()) params.append('search', search.trim());
+    const query = params.toString();
+    return fetchJson<import('../types').TrackerIssue[]>(`${API_BASE}/tracker/issues${query ? `?${query}` : ''}`);
+  },
+
+  syncTracker: (): Promise<import('../types').TrackerSyncResponse> =>
+    fetchJson<import('../types').TrackerSyncResponse>(`${API_BASE}/tracker/sync`, { method: 'POST' }),
+
+  updateTrackerIssueStatus: (issueKey: string, status: import('../types').TrackerStatus): Promise<{ success: boolean; message: string; issue?: import('../types').TrackerIssue }> =>
+    fetchJson(`${API_BASE}/tracker/issues/${encodeURIComponent(issueKey)}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
 };
+

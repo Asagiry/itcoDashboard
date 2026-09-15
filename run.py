@@ -6,6 +6,13 @@ import argparse
 import webbrowser
 import time
 
+if sys.platform == "win32":
+    import asyncio
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
+
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_LIBS = os.path.join(ROOT_DIR, "backend", "libs")
 FRONTEND_DIR = os.path.join(ROOT_DIR, "frontend")

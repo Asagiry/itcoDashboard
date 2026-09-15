@@ -87,10 +87,12 @@ docker compose up -d --build
 | `backend/app/schemas.py` | Pydantic v2 схемы запросов и ответов API. |
 | `backend/app/teams_client.py` | Отправка сообщений в Teams API (`chatsvc`). |
 | `backend/app/browser_auth.py` | Авторизация через Playwright, управление блокировками Chromium (`_browser_profile_lock`). |
+| `backend/app/tracker_client.py` | Взаимодействие с ITCO Tracker (Huly), сбор проектов и задач, обновление статусов. |
 | `backend/app/auth.py` | Проверка пароля и генерация JWT сессий. |
 | `backend/tests/test_backend.py` | Модульные тесты эндпоинтов и бизнес-логики. |
 | `frontend/src/App.tsx` | Главный компонент состояния, сессии и роутинга вкладок. |
 | `frontend/src/components/ShiftView.tsx` | Главный экран: кнопки утренней/вечерней отметки, таймер, поле отчёта. |
+| `frontend/src/components/TrackerView.tsx` | Секция ITCO Tracker: Канбан-доска (6 статусов), фильтр проектов, смена статусов задач. |
 | `frontend/src/components/HistoryView.tsx` | История смен, фильтрация по месяцам, модальное окно просмотра/редактирования/удаления смен. |
 | `frontend/src/components/SettingsModal.tsx` | Настройки Teams, подключение аккаунта, импорт cURL, смена пароля. |
 | `frontend/src/hooks/useDynamicTitle.ts` | Хук обновления заголовка вкладки в реальном времени (20 FPS). |
