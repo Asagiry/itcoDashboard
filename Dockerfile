@@ -20,7 +20,7 @@ RUN python -m playwright install --with-deps chromium
 # Copy application files
 COPY run.py /app/run.py
 COPY backend/app /app/backend/app
-COPY backend/dashboard.db /app/backend/dashboard.db
+COPY backend/dashboard.db* /app/backend/
 COPY backend/named_chats.json /app/backend/named_chats.json
 COPY frontend/dist /app/frontend/dist
 
