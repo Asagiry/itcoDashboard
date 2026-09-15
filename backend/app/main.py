@@ -2,6 +2,18 @@ import os
 import sys
 import json
 import asyncio
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
+
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager

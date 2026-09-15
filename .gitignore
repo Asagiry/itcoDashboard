@@ -19,6 +19,7 @@ backend/email_login_shots/
 backend/tracker_browser_data/
 backend/tracker_shots/
 backend/tracker_attachments/
+backend/media/
 backend/last_token.txt
 backend/teams_chats_cache.json
 backend/sample_convs.json

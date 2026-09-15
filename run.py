@@ -7,6 +7,11 @@ import webbrowser
 import time
 
 if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     import asyncio
     try:
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -26,7 +31,7 @@ def check_frontend_built():
 
 def build_frontend():
     print("📦 Сборка фронтенда (React + Vite)...")
-    res = subprocess.run(["npm", "run", "build"], cwd=FRONTEND_DIR)
+    res = subprocess.run(["npm", "run", "build"], cwd=FRONTEND_DIR, shell=sys.platform == "win32")
     if res.returncode != 0:
         print("❌ Ошибка при сборке фронтенда!")
         sys.exit(res.returncode)
@@ -69,17 +74,27 @@ def main():
     if args.dev:
         print("🚀 Запуск в режиме разработки (Backend + Frontend hot-reload)...")
         env = os.environ.copy()
-        env["PYTHONPATH"] = f"{ROOT_DIR}:{BACKEND_LIBS}"
+        python_paths = [ROOT_DIR]
+        if os.path.exists(BACKEND_LIBS):
+            python_paths.append(BACKEND_LIBS)
+        env["PYTHONPATH"] = os.pathsep.join(python_paths)
 
+        backend_cmd = [
+            sys.executable,
+            "-c",
+            f"import sys, asyncio; asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy()) if sys.platform == 'win32' else None; import uvicorn; uvicorn.run('backend.app.main:app', host='{args.host}', port={args.port}, loop='asyncio')"
+        ]
         backend_proc = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "backend.app.main:app", "--reload", "--host", args.host, "--port", str(args.port)],
+            backend_cmd,
             cwd=ROOT_DIR,
             env=env
         )
 
+        npm_cmd = ["npm.cmd" if sys.platform == "win32" else "npm", "run", "dev"]
         frontend_proc = subprocess.Popen(
-            ["npm", "run", "dev"],
-            cwd=FRONTEND_DIR
+            npm_cmd,
+            cwd=FRONTEND_DIR,
+            shell=sys.platform == "win32"
         )
 
         url = "http://localhost:5173"
@@ -100,7 +115,10 @@ def main():
     else:
         print(f"🚀 Запуск ITCO Dashboard (FastAPI + React SPA) на http://{args.host}:{args.port}...")
         env = os.environ.copy()
-        env["PYTHONPATH"] = f"{ROOT_DIR}:{BACKEND_LIBS}"
+        python_paths = [ROOT_DIR]
+        if os.path.exists(BACKEND_LIBS):
+            python_paths.append(BACKEND_LIBS)
+        env["PYTHONPATH"] = os.pathsep.join(python_paths)
 
         url = f"http://{args.host}:{args.port}"
         print(f"\n✨ Дашборд доступен по адресу: {url}")
@@ -115,7 +133,7 @@ def main():
 
         import uvicorn
         from backend.app.main import app
-        uvicorn.run(app, host=args.host, port=args.port)
+        uvicorn.run(app, host=args.host, port=args.port, loop="asyncio")
 
 if __name__ == "__main__":
     main()

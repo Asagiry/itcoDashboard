@@ -274,6 +274,8 @@ async def get_tracker_issues(project_key: Optional[str] = None, status: Optional
 async def save_tracker_issues(issues: List[Dict[str, Any]], replace_all: bool = False):
     await ensure_db_initialized()
     async with aiosqlite.connect(DB_PATH) as db:
+        if replace_all:
+            await db.execute("DELETE FROM tracker_issues")
         for iss in issues:
             i_id = str(iss.get("id") or iss.get("key") or "")
             if not i_id:

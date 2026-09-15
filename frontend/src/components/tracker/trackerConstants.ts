@@ -33,6 +33,14 @@ export const TRACKER_COLUMNS: ColumnDef[] = [
     icon: Clock,
   },
   {
+    key: 'review',
+    title: 'review',
+    dotColor: 'bg-purple-500',
+    pillBg: 'bg-purple-50 text-purple-900 border border-purple-200/50',
+    pillText: 'text-purple-900',
+    icon: Clock,
+  },
+  {
     key: 'ready_for_testing',
     title: 'ready for testing',
     dotColor: 'bg-indigo-500',
@@ -49,16 +57,8 @@ export const TRACKER_COLUMNS: ColumnDef[] = [
     icon: Clock,
   },
   {
-    key: 'review',
-    title: 'review',
-    dotColor: 'bg-blue-400',
-    pillBg: 'bg-blue-50/70 text-blue-900 border border-blue-200/50',
-    pillText: 'text-blue-900',
-    icon: Clock,
-  },
-  {
     key: 'ready_to_merge',
-    title: 'ready for merge',
+    title: 'Ready for merge',
     dotColor: 'bg-emerald-500',
     pillBg: 'bg-emerald-50 text-emerald-900 border border-emerald-200/60',
     pillText: 'text-emerald-900',
