@@ -57,8 +57,8 @@ class EndShiftResponse(BaseModel):
     teams_response: Optional[str] = None
 
 class TestTeamsRequest(BaseModel):
-    chat_type: str = Field("director", description="director или daily")
-    custom_message: Optional[str] = "Тестовое сообщение из дашборда учета смен."
+    chat_type: str = Field("self", description="self, director или daily")
+    custom_message: Optional[str] = "test ping"
 
 class TestTeamsResponse(BaseModel):
     success: bool

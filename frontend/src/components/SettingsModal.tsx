@@ -46,11 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [teamsChats, setTeamsChats] = useState<TeamsChat[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
-  const [isBrowserLoggingIn, setIsBrowserLoggingIn] = useState(false);
-  const [isBrowserRefreshing, setIsBrowserRefreshing] = useState(false);
-  const [hasBrowserProfile, setHasBrowserProfile] = useState(false);
-  const [curlInput, setCurlInput] = useState('');
-  const [isParsingCurl, setIsParsingCurl] = useState(false);
+  const [isChangingAccount, setIsChangingAccount] = useState(false);
   const [isTestingTeams, setIsTestingTeams] = useState(false);
   const [emailAddr, setEmailAddr] = useState('vepishin@it-co.ru');
   const [emailSid, setEmailSid] = useState<string | null>(null);
@@ -77,13 +73,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const loadBrowserStatus = async () => {
-    try {
-      const res = await api.getBrowserStatus();
-      setHasBrowserProfile(res.has_profile);
-    } catch {}
-  };
-
   useEffect(() => {
     if (isOpen) {
       api.getSettings()
@@ -91,7 +80,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         .catch((err) => showToast('error', 'Не удалось загрузить настройки', err.message));
 
       loadChats();
-      loadBrowserStatus();
     }
   }, [isOpen]);
 
@@ -110,79 +98,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleBrowserLogin = async () => {
-    setIsBrowserLoggingIn(true);
-    showToast('info', 'Открытие браузера', 'Авторизуйтесь в открывшемся Chrome с галочкой «Запомнить меня»');
-    try {
-      const res = await api.browserLogin();
-      if (res.success) {
-        showToast('success', 'Авторизация выполнена', res.message);
-        const fresh = await api.getSettings();
-        setSettings(fresh);
-        onSettingsSaved();
-        setHasBrowserProfile(true);
-        loadChats();
-      } else {
-        showToast('error', 'Ошибка входа', res.message);
-      }
-    } catch (err: any) {
-      showToast('error', 'Ошибка запуска браузера', err.message);
-    } finally {
-      setIsBrowserLoggingIn(false);
-    }
-  };
 
-  const handleBrowserRefresh = async () => {
-    setIsBrowserRefreshing(true);
-    try {
-      const res = await api.browserRefresh();
-      if (res.success) {
-        showToast('success', 'Сессия проверена', res.message);
-        const fresh = await api.getSettings();
-        setSettings(fresh);
-        onSettingsSaved();
-        loadChats();
-      } else {
-        showToast('error', 'Не удалось обновить', res.message);
-      }
-    } catch (err: any) {
-      showToast('error', 'Ошибка проверки сессии', err.message);
-    } finally {
-      setIsBrowserRefreshing(false);
-    }
-  };
-
-  const handleParseCurl = async () => {
-    if (!curlInput.trim()) {
-      showToast('error', 'Вставьте cURL', 'Скопируйте запрос из DevTools (F12 → Network → Copy as cURL).');
-      return;
-    }
-    setIsParsingCurl(true);
-    try {
-      const res = await api.parseCurl(curlInput.trim());
-      if ((res as any).success === false) {
-        showToast('error', 'Не удалось распарсить', (res as any).error || 'Проверьте формат cURL');
-      } else {
-        showToast('success', 'Токен применён', 'URL и токен сохранены на сервере.');
-        setCurlInput('');
-        const fresh = await api.getSettings();
-        setSettings(fresh);
-        onSettingsSaved();
-        loadChats();
-      }
-    } catch (err: any) {
-      showToast('error', 'Ошибка импорта cURL', err.message);
-    } finally {
-      setIsParsingCurl(false);
-    }
-  };
-
-  const handleTestTeams = async (chat_type: 'director' | 'daily') => {
+  const handleTestTeams = async () => {
     setIsTestingTeams(true);
     try {
-      const res = await api.testTeams(chat_type);
+      const res = await api.testTeams('self', 'test ping');
       if (res.success) {
-        showToast('success', 'Тест прошёл', `Teams ответил ${res.status_code}`);
+        showToast('success', 'Тест прошёл успешно', 'Сообщение "test ping" отправлено в ЛС себе в Teams.');
       } else {
         showToast('error', 'Тест не прошёл', res.error || `Статус ${res.status_code}`);
       }
@@ -270,6 +192,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setEmailOptions([]);
         setCodeInput('');
         setShowShot(false);
+        setIsChangingAccount(false);
         const fresh = await api.getSettings();
         setSettings(fresh);
         onSettingsSaved();
@@ -286,15 +209,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleEmailCancel = async () => {
-    if (!emailSid) return;
-    try {
-      await api.teamsEmailCancel(emailSid);
-    } catch {}
+    if (emailSid) {
+      try {
+        await api.teamsEmailCancel(emailSid);
+      } catch {}
+    }
     setEmailSid(null);
     setEmailStage(null);
     setEmailOptions([]);
     setCodeInput('');
     setShowShot(false);
+    setIsChangingAccount(false);
   };
 
   const findChatByUrl = (url: string) => {
@@ -342,7 +267,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setSearchQuery('');
   };
 
-  const isAccountActive = !!settings.auth_token && !settings.token_info?.is_expired;
+  const isTeamsConnected = !!settings.auth_token && settings.token_info?.is_expired !== true;
+  const showLoginForm = !isTeamsConnected || isChangingAccount;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
@@ -681,259 +607,225 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: AUTH (Streamlined, zero AI slop, no manual inputs) */}
+          {/* TAB 2: AUTH */}
           {activeTab === 'auth' && (
             <div className="space-y-4">
               <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4">
                 
-                {/* Account Top Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm tracking-wide shrink-0">
-                      {(settings.account_name || 'Teams')
-                        .split(' ')
-                        .map((p) => p[0])
-                        .filter(Boolean)
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase() || 'TM'}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-slate-900">
-                        {settings.account_name || 'Пользователь Teams'}
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        {settings.token_info?.skypeid || 'Сессия браузера активна'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    {isAccountActive ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Активен
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                        <span className="w-2 h-2 rounded-full bg-slate-400" />
-                        Не активен
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Session Details */}
-                <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <div className="text-slate-400 text-[11px] mb-0.5">Сессия Teams:</div>
-                    <div className="font-semibold text-slate-800">
-                      Бессрочно (Запомнить меня)
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-400 text-[11px] mb-0.5">Авто-продление:</div>
-                    <div className="font-semibold text-emerald-700 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Активно в фоне
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100 leading-relaxed">
-                  Временный ключ Teams действует до {settings.token_info?.expires_at ? settings.token_info.expires_at.split(' ')[1] : 'вечера'} и обновляется сервером автоматически за час до окончания. Повторно входить не потребуется.
-                </div>
-
-                {!hasBrowserProfile && (
-                  <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-relaxed">
-                    На сервере (VPS) браузера нет — это нормально. Вход через браузер там не сработает.
-                    Используйте импорт cURL ниже с локального ПК: Teams в браузере → F12 → Network → отправьте сообщение → Copy as cURL.
-                  </div>
-                )}
-
-                {/* Вход по коду из письма — основной способ */}
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <div className="text-xs font-bold text-slate-900">Вход по коду из письма</div>
-                  {!emailSid ? (
-                    <div className="flex gap-2">
-                      <input
-                        type="email"
-                        value={emailAddr}
-                        onChange={(e) => setEmailAddr(e.target.value)}
-                        placeholder="vepishin@it-co.ru"
-                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleEmailStart}
-                        disabled={isEmailBusy}
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                      >
-                        <span>{isEmailBusy ? 'Ждём Microsoft...' : 'Отправить код'}</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {/* Статус / Сообщение */}
-                      <div className={`text-[11px] p-2.5 rounded-lg border leading-relaxed ${
-                        emailStage === 'code_sent'
-                          ? 'text-blue-800 bg-blue-50 border-blue-200'
-                          : emailStage === 'limited'
-                          ? 'text-red-800 bg-red-50 border-red-200'
-                          : 'text-amber-800 bg-amber-50 border-amber-200'
-                      }`}>
-                        {emailStage === 'code_sent' && `Код отправлен на ${emailAddr}. Введите 6 цифр из письма.`}
-                        {emailStage === 'limited' && 'Microsoft временно ограничил отправку кодов (слишком частые запросы). Подождите 30–60 минут или выберите другой способ.'}
-                        {emailStage !== 'code_sent' && emailStage !== 'limited' && (
-                          `Microsoft ожидает подтверждения (стадия: ${emailStage || 'проверка'}). Если код уже пришёл — введите его ниже, либо выберите вариант действия.`
-                        )}
-                      </div>
-
-                      {/* Кнопки вариантов от Microsoft если есть */}
-                      {emailOptions.length > 0 && (
-                        <div className="space-y-1">
-                          <div className="text-[10px] text-slate-500 font-medium">Варианты от Microsoft:</div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {emailOptions.map((opt, i) => (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={() => handleEmailClick(opt)}
-                                disabled={isEmailBusy}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
-                              >
-                                {opt}
-                              </button>
-                            ))}
+                {/* Если пользователь авторизован — показываем статус аккаунта и кнопку смены */}
+                {!showLoginForm ? (
+                  <div className="space-y-4">
+                    {/* Account Top Row */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm tracking-wide shrink-0">
+                          {(settings.account_name || 'Teams')
+                            .split(' ')
+                            .map((p) => p[0])
+                            .filter(Boolean)
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase() || 'TM'}
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-slate-900">
+                            {settings.account_name || 'Пользователь Teams'}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            {settings.token_info?.skypeid || 'Сессия Teams активна'}
                           </div>
                         </div>
-                      )}
-
-                      {/* Поле ввода кода доступно ВСЕГДА при наличии активного emailSid */}
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={codeInput}
-                          onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                          placeholder="123456"
-                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={handleEmailSubmit}
-                          disabled={isEmailBusy}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                        >
-                          <span>{isEmailBusy ? 'Проверяем...' : 'Войти'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleEmailCancel}
-                          disabled={isEmailBusy}
-                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                          <span>Отмена</span>
-                        </button>
                       </div>
 
-                      {/* Переключатель просмотра снимка экрана */}
-                      <div className="flex items-center justify-between pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setShowShot(!showShot)}
-                          className="text-[11px] text-blue-600 hover:underline cursor-pointer"
-                        >
-                          {showShot ? 'Скрыть снимок экрана' : 'Показать снимок экрана Microsoft'}
-                        </button>
-                        {showShot && (
-                          <button
-                            type="button"
-                            onClick={() => setShotKey(Date.now())}
-                            className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
-                          >
-                            Обновить снимок
-                          </button>
-                        )}
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Активен
+                        </span>
                       </div>
+                    </div>
 
-                      {showShot && (
-                        <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto bg-slate-50">
-                          <img
-                            src={`/api/auth/teams-email/shot/${emailSid}?t=${shotKey}`}
-                            alt="Microsoft login screen"
-                            className="w-full object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
+                    {/* Session Details */}
+                    <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <div className="text-slate-400 text-[11px] mb-0.5">Сессия Teams:</div>
+                        <div className="font-semibold text-slate-800">
+                          Бессрочно (Запомнить меня)
                         </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-400 text-[11px] mb-0.5">Авто-продление:</div>
+                        <div className="font-semibold text-emerald-700 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Активно в фоне
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions: Тест ping в ЛС себе + Сменить аккаунт */}
+                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handleTestTeams}
+                        disabled={isTestingTeams}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <span>{isTestingTeams ? 'Отправка...' : 'Тест подключения (test ping в ЛС себе)'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsChangingAccount(true)}
+                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Сменить аккаунт</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Форма входа по коду из письма (показывается когда не залогинен или нажата «Сменить аккаунт») */
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div className="text-xs font-bold text-slate-900">
+                        {isChangingAccount ? 'Смена учётной записи Teams' : 'Вход по коду из письма'}
+                      </div>
+                      {isChangingAccount && !emailSid && (
+                        <button
+                          type="button"
+                          onClick={() => setIsChangingAccount(false)}
+                          className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                        >
+                          Вернуться
+                        </button>
                       )}
                     </div>
-                  )}
-                </div>
 
-                {/* cURL import — запасной способ входа на VPS */}
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <div className="text-xs font-bold text-slate-900">Импорт cURL (работает на VPS)</div>
-                  <textarea
-                    value={curlInput}
-                    onChange={(e) => setCurlInput(e.target.value)}
-                    placeholder="Вставьте сюда 'Copy as cURL' из DevTools Teams..."
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleParseCurl}
-                      disabled={isParsingCurl}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      <span>{isParsingCurl ? 'Импорт...' : 'Распарсить и применить'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestTeams('director')}
-                      disabled={isTestingTeams}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      <span>Тест: директор</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestTeams('daily')}
-                      disabled={isTestingTeams}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      <span>Тест: дейли-чат</span>
-                    </button>
+                    {!emailSid ? (
+                      <div className="space-y-2">
+                        <div className="text-[11px] text-slate-500">
+                          Укажите e-mail учётной записи Microsoft. На него придёт одноразовый код:
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={emailAddr}
+                            onChange={(e) => setEmailAddr(e.target.value)}
+                            placeholder="vepishin@it-co.ru"
+                            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleEmailStart}
+                            disabled={isEmailBusy}
+                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          >
+                            <span>{isEmailBusy ? 'Ждём Microsoft...' : 'Отправить код'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Статус / Сообщение */}
+                        <div className={`text-[11px] p-2.5 rounded-lg border leading-relaxed ${
+                          emailStage === 'code_sent'
+                            ? 'text-blue-800 bg-blue-50 border-blue-200'
+                            : emailStage === 'limited'
+                            ? 'text-red-800 bg-red-50 border-red-200'
+                            : 'text-amber-800 bg-amber-50 border-amber-200'
+                        }`}>
+                          {emailStage === 'code_sent' && `Код отправлен на ${emailAddr}. Введите 6 цифр из письма.`}
+                          {emailStage === 'limited' && 'Microsoft временно ограничил отправку кодов (слишком частые запросы). Подождите 30–60 минут или выберите другой способ.'}
+                          {emailStage !== 'code_sent' && emailStage !== 'limited' && (
+                            `Microsoft ожидает подтверждения (стадия: ${emailStage || 'проверка'}). Если код уже пришёл — введите его ниже, либо выберите вариант действия.`
+                          )}
+                        </div>
+
+                        {/* Кнопки вариантов от Microsoft если есть */}
+                        {emailOptions.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="text-[10px] text-slate-500 font-medium">Варианты от Microsoft:</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {emailOptions.map((opt, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => handleEmailClick(opt)}
+                                  disabled={isEmailBusy}
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Поле ввода кода доступно ВСЕГДА при наличии активного emailSid */}
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={codeInput}
+                            onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                            placeholder="123456"
+                            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={handleEmailSubmit}
+                            disabled={isEmailBusy}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          >
+                            <span>{isEmailBusy ? 'Проверяем...' : 'Войти'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleEmailCancel}
+                            disabled={isEmailBusy}
+                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                          >
+                            <span>Отмена</span>
+                          </button>
+                        </div>
+
+                        {/* Переключатель просмотра снимка экрана */}
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setShowShot(!showShot)}
+                            className="text-[11px] text-blue-600 hover:underline cursor-pointer"
+                          >
+                            {showShot ? 'Скрыть снимок экрана' : 'Показать снимок экрана Microsoft'}
+                          </button>
+                          {showShot && (
+                            <button
+                              type="button"
+                              onClick={() => setShotKey(Date.now())}
+                              className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                            >
+                              Обновить снимок
+                            </button>
+                          )}
+                        </div>
+
+                        {showShot && (
+                          <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto bg-slate-50">
+                            <img
+                              src={`/api/auth/teams-email/shot/${emailSid}?t=${shotKey}`}
+                              alt="Microsoft login screen"
+                              className="w-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                {/* Actions */}
-                <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleBrowserLogin}
-                    disabled={isBrowserLoggingIn}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    <LogIn className={`w-3.5 h-3.5 ${isBrowserLoggingIn ? 'animate-spin' : ''}`} />
-                    <span>{isBrowserLoggingIn ? 'Ожидание браузера...' : hasBrowserProfile ? 'Сменить аккаунт' : 'Выполнить вход'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleBrowserRefresh}
-                    disabled={isBrowserRefreshing}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isBrowserRefreshing ? 'animate-spin' : ''}`} />
-                    <span>{isBrowserRefreshing ? 'Проверка...' : 'Проверить сессию'}</span>
-                  </button>
-                </div>
+                )}
 
               </div>
             </div>

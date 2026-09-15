@@ -82,7 +82,7 @@ export const api = {
       body: JSON.stringify(settings),
     }),
 
-  testTeams: (chat_type: 'director' | 'daily', custom_message?: string): Promise<TestTeamsResponse> =>
+  testTeams: (chat_type: 'self' | 'director' | 'daily' = 'self', custom_message?: string): Promise<TestTeamsResponse> =>
     fetchJson<TestTeamsResponse>(`${API_BASE}/settings/test-teams`, {
       method: 'POST',
       body: JSON.stringify({ chat_type, custom_message }),

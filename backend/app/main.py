@@ -655,14 +655,23 @@ async def update_settings(req: SettingsSchema):
     await save_settings(save_dict)
     return {"success": True, "message": "Настройки успешно сохранены."}
 
+SELF_NOTES_CHAT_URL = "https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/48%3Anotes/messages"
+
 @app.post("/api/settings/test-teams", response_model=TestTeamsResponse)
 async def test_teams_endpoint(req: TestTeamsRequest):
     settings = await get_all_settings()
-    target_url = (
-        settings.get("director_chat_url", "")
-        if req.chat_type == "director"
-        else settings.get("daily_chat_url", "")
-    ).strip()
+    if req.chat_type == "self":
+        target_url = SELF_NOTES_CHAT_URL
+        test_msg = req.custom_message or "test ping"
+    elif req.chat_type == "director":
+        target_url = settings.get("director_chat_url", "").strip()
+        test_msg = req.custom_message or "test ping"
+    elif req.chat_type == "daily":
+        target_url = settings.get("daily_chat_url", "").strip()
+        test_msg = req.custom_message or "test ping"
+    else:
+        target_url = SELF_NOTES_CHAT_URL
+        test_msg = req.custom_message or "test ping"
 
     if not target_url:
         return TestTeamsResponse(
@@ -673,8 +682,11 @@ async def test_teams_endpoint(req: TestTeamsRequest):
             error="URL выбранного чата не указан в настройках."
         )
 
-    auth_header = settings.get("auth_header_name", "Authorization")
-    auth_token = settings.get("auth_token", "")
+    auth_header, auth_token = await ensure_active_token()
+    if not auth_token:
+        auth_header = settings.get("auth_header_name", "Authentication")
+        auth_token = settings.get("auth_token", "")
+
     custom_headers = {}
     try:
         raw_custom = settings.get("custom_headers", "{}")
@@ -683,7 +695,6 @@ async def test_teams_endpoint(req: TestTeamsRequest):
     except Exception:
         pass
 
-    test_msg = req.custom_message or "Тестовое сообщение из дашборда учета смен."
     success, status_code, resp_text = await send_teams_message(
         url=target_url,
         message=test_msg,
