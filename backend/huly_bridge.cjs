@@ -155,9 +155,23 @@ async function syncTracker(token, accountId) {
   });
   const userPersonId = userPerson ? userPerson._id : '6a969554b09b44d03f62d9f7';
 
-  // 3. User issues
+  // 3. User issues (filter out ready for production & completed/cancelled)
+  const EXCLUDED_STATUS_IDS = new Set([
+    '6a3f80269e8c40247bc05811', // Ready for Production
+    'tracker:status:Done',
+    'tracker:status:Resolved',
+    'tracker:status:Canceled',
+    '69f9c1c3112005c7f3bf440c',
+    '69f9cbcc112005c7f3bf50c6'
+  ]);
+
   const allIssues = await tx.findAll('tracker:class:Issue', {});
-  const userIssues = allIssues.filter(i => i.assignee === userPersonId);
+  const userIssues = allIssues.filter(i => {
+    if (i.assignee !== userPersonId) return false;
+    if (EXCLUDED_STATUS_IDS.has(i.status)) return false;
+    if (ID_TO_STATUS[i.status] === 'ready_for_production') return false;
+    return true;
+  });
   const userIssueIds = new Set(userIssues.map(i => i._id));
 
   // 4. Attachments
