@@ -25,7 +25,8 @@ COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
 
 # Install python dependencies
 COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/backend/requirements.txt
 
 # Headless Chromium для входа Teams по коду и фонового обновления токена на VPS
 # (cdn.playwright.dev из РФ часто недоступен — качаем через зеркало)
