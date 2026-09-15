@@ -12,5 +12,7 @@ backend/libs/
 backend/browser_data/
 backend/email_login_shots/
 frontend/node_modules/
+backend/huly_client/node_modules/
+backend/media/
 deploy_package.tar.gz
 itcoDashboard.zip
