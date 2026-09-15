@@ -232,7 +232,42 @@ async function syncTracker(token, accountId) {
     desc = desc.replace(/[\w\.\-]+\.(?:exe|png|jpg|jpeg|pdf|zip)\s+[\d\.]+\s*(?:kB|MB|B)\s*•\s*Download(?:\s*•\s*Delete)?/gi, '').trim();
     desc = desc.replace(/\\$/gm, '');
     desc = desc.replace(/\\n/g, '\n');
-    desc = desc.replace(/\n{3,}/g, '\n\n').trim();
+
+    // Format labels: Вопрос:, Ответ:, ОР:, ФР:
+    desc = desc.replace(/^(ОР[\.:]?|ОР\s*-|Ожидаемый результат:?)\s*/gim, '**ОР:** ');
+    desc = desc.replace(/^(ФР[\.:]?|ФР\s*-|Фактический результат:?)\s*/gim, '**ФР:** ');
+    desc = desc.replace(/^(вопрос:?)\s*/gim, '**Вопрос:** ');
+    desc = desc.replace(/^(ответ:?)\s*/gim, '**Ответ:** ');
+
+    // Normalize hard wraps inside paragraphs
+    const paragraphs = desc.split(/\n{2,}/);
+    const cleanedParas = paragraphs.map(p => {
+      const lines = p.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) return '';
+      
+      const isList = lines.every(l => /^(\d+\.|[-*•]|!\[)/.test(l));
+      if (isList) return lines.join('\n');
+      
+      let result = [];
+      let currentText = [];
+      for (const line of lines) {
+        if (/^(\d+\.|[-*•]|!\[)/.test(line)) {
+          if (currentText.length > 0) {
+            result.push(currentText.join(' '));
+            currentText = [];
+          }
+          result.push(line);
+        } else {
+          currentText.push(line);
+        }
+      }
+      if (currentText.length > 0) {
+        result.push(currentText.join(' '));
+      }
+      return result.join('\n');
+    });
+
+    desc = cleanedParas.filter(Boolean).join('\n\n').trim();
 
     const normStatus = ID_TO_STATUS[iss.status] || 'todo';
     const projKey = iss.identifier ? iss.identifier.split('-')[0] : 'МКС';
