@@ -15,12 +15,12 @@ The **Shifts and Teams Automation** subsystem provides the core daily workflow f
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        SALARY & RATE FORMULAS                          │
 ├────────────────────────────────────────────────────────────────────────┤
-│  Monthly Base Salary (M):       35,000.00 ₽ / month                    │
+│  Monthly Base Salary (M):       Configurable in Settings (default 35k) │
 │  Standard Working Days (D):     21 days / month                        │
-│  Standard Daily Rate (S):       1,667.00 ₽ / 8-hour shift              │
-│  Hourly Rate (H):               1,667.00 / 8.0 = 208.375 ₽ / hour      │
-│  Minute Rate (m):               208.375 / 60.0 ≈ 3.472917 ₽ / minute   │
-│  Second Rate (s):               1,667.00 / 28,800 ≈ 0.057881944 ₽ / s  │
+│  Standard Daily Rate (S):       1,667.00 ₽ (35k) or round(M / 21, 2)   │
+│  Hourly Rate (H):               S / 8.0 ₽ / hour                       │
+│  Minute Rate (m):               H / 60.0 ₽ / minute                    │
+│  Second Rate (s):               S / 28,800.0 ₽ / s                     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -29,17 +29,17 @@ While a shift is in progress (`status == 'in_progress'`), earnings accrue contin
 
 $$\Delta t_{\text{sec}} = \max(0, t_{\text{now}} - t_{\text{start}})$$
 
-$$\text{Earned}_{\text{today}}(t) = \Delta t_{\text{sec}} \times \left( \frac{1667.0}{28800.0} \right) = \Delta t_{\text{sec}} \times 0.057881944\text{ ₽}$$
+$$\text{Earned}_{\text{today}}(t) = \Delta t_{\text{sec}} \times \left( \frac{S}{28800.0} \right)$$
 
 ### 2.2. Completed Shift Calculation & Overtime
 When a shift is completed (`status == 'completed'`), total shift hours are computed from rounded start and end times:
 
 $$H_{\text{worked}} = \frac{t_{\text{end\_sec}} - t_{\text{start\_sec}}}{3600.0}$$
 
-$$\text{Earned}_{\text{shift}} = \text{round}\left( H_{\text{worked}} \times 208.375,\ 2 \right)$$
+$$\text{Earned}_{\text{shift}} = \text{round}\left( H_{\text{worked}} \times \frac{S}{8.0},\ 2 \right)$$
 
-- **Standard 8.0-hour shift**: $8.0 \times 208.375 = 1,667.00\text{ ₽}$.
-- **Overtime (e.g. 9.0 hours)**: $9.0 \times 208.375 = 1,875.38\text{ ₽}$ (proportionally compensated in full).
+- **Standard 8.0-hour shift (35k)**: $8.0 \times 208.375 = 1,667.00\text{ ₽}$.
+- **Overtime (e.g. 9.0 hours)**: $9.0 \times \text{Hourly Rate}$ (proportionally compensated in full).
 
 ### 2.3. Monthly Cumulative Earnings
 $$\text{Earned}_{\text{month}} = \sum_{k=1}^{N_{\text{completed}}} \text{Earned}_{\text{shift}, k} + \begin{cases} \text{Earned}_{\text{today}}(t) & \text{if shift is active} \\ 0 & \text{otherwise} \end{cases}$$
