@@ -4,7 +4,6 @@ import {
   StartShiftResponse,
   EndShiftResponse,
   TestTeamsResponse,
-  ParseCurlResponse,
   SalaryStats,
   LoginResponse,
   AuthUser
@@ -90,23 +89,8 @@ export const api = {
       body: JSON.stringify({ chat_type, custom_message }),
     }),
 
-  parseCurl: (curl_command: string): Promise<ParseCurlResponse> =>
-    fetchJson<ParseCurlResponse>(`${API_BASE}/settings/parse-curl`, {
-      method: 'POST',
-      body: JSON.stringify({ curl_command }),
-    }),
-
   getTeamsChats: (force: boolean = false): Promise<{ success: boolean; chats: import('../types').TeamsChat[] }> =>
     fetchJson(`${API_BASE}/teams/chats${force ? '?force=true' : ''}`),
-
-  getBrowserStatus: (): Promise<{ success: boolean; has_profile: boolean }> =>
-    fetchJson(`${API_BASE}/auth/browser-status`),
-
-  browserLogin: (): Promise<{ success: boolean; message: string; token_info?: any }> =>
-    fetchJson(`${API_BASE}/auth/browser-login`, { method: 'POST' }),
-
-  browserRefresh: (): Promise<{ success: boolean; message: string; token_info?: any }> =>
-    fetchJson(`${API_BASE}/auth/browser-refresh`, { method: 'POST' }),
 
   teamsEmailStart: (email: string): Promise<{ success: boolean; message: string; session_id?: string; stage?: string }> =>
     fetchJson(`${API_BASE}/auth/teams-email/start`, {
@@ -162,9 +146,6 @@ export const api = {
   getTrackerStatus: (): Promise<import('../types').TrackerAuthStatus> =>
     fetchJson<import('../types').TrackerAuthStatus>(`${API_BASE}/tracker/status`),
 
-  trackerLogin: (): Promise<{ success: boolean; message: string; account_name?: string }> =>
-    fetchJson(`${API_BASE}/tracker/login`, { method: 'POST' }),
-
   trackerPasswordLogin: (email: string, password: string): Promise<import('../types').TrackerLoginResult> =>
     fetchJson<import('../types').TrackerLoginResult>(`${API_BASE}/tracker/auth/password-login`, {
       method: 'POST',
@@ -173,18 +154,6 @@ export const api = {
 
   getTrackerLogs: (): Promise<{ success: boolean; logs: import('../types').TrackerLogItem[] }> =>
     fetchJson(`${API_BASE}/tracker/logs`),
-
-  trackerCodeStart: (email: string): Promise<{ success: boolean; message: string; session_id?: string }> =>
-    fetchJson(`${API_BASE}/tracker/auth/code-start`, {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
-
-  trackerCodeSubmit: (session_id: string, code: string): Promise<{ success: boolean; message: string; account_name?: string }> =>
-    fetchJson(`${API_BASE}/tracker/auth/code-submit`, {
-      method: 'POST',
-      body: JSON.stringify({ session_id, code }),
-    }),
 
   trackerLogout: (): Promise<{ success: boolean; message: string }> =>
     fetchJson(`${API_BASE}/tracker/logout`, { method: 'POST' }),

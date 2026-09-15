@@ -19,7 +19,6 @@ from backend.app.database import (
     create_or_update_shift,
     delete_shift_by_date
 )
-from backend.app.curl_parser import parse_curl_command
 from backend.app.teams_client import format_message_for_teams
 from backend.app.routers.shifts import get_today_str
 from backend.app.main import app, MOSCOW_TZ
@@ -44,7 +43,7 @@ class BackendTestCase(unittest.TestCase):
         cls.client = TestClient(app)
         login_resp = cls.client.post(
             "/api/auth/login",
-            json={"username": "vepishin", "password": "itcodevelopment"},
+            json={"username": "vepishin", "password": "itcodevelopment"}
         )
         assert login_resp.status_code == 200, login_resp.text
         cls.auth_token = login_resp.json()["token"]
@@ -58,21 +57,6 @@ class BackendTestCase(unittest.TestCase):
         db_path = os.environ["DATABASE_PATH"]
         if os.path.exists(db_path):
             os.remove(db_path)
-
-    def test_01_curl_parser(self):
-        sample_curl = (
-            "curl 'https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/19%3Auni01_test%40thread.v2/messages' "
-            "-H 'User-Agent: Mozilla/5.0' "
-            "-H 'Authorization: Bearer my_secret_token_123' "
-            "-H 'Content-Type: application/json' "
-            "--data-raw '{\"content\":\"hi\"}'"
-        )
-        success, url, auth_header, auth_token, headers, err = parse_curl_command(sample_curl)
-        self.assertTrue(success)
-        self.assertIn("19%3Auni01_test", url)
-        self.assertEqual(auth_header, "Authorization")
-        self.assertEqual(auth_token, "Bearer my_secret_token_123")
-        self.assertEqual(headers.get("User-Agent"), "Mozilla/5.0")
 
     def test_02_get_settings(self):
         response = self.client.get("/api/settings")

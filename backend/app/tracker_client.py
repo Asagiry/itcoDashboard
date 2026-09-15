@@ -165,27 +165,6 @@ async def run_tracker_password_login(email: str, password: str) -> Dict[str, Any
         "logs": [l["message"] for l in _tracker_logs[-10:]]
     }
 
-async def start_tracker_code_login(email: str) -> Dict[str, Any]:
-    return {
-        "success": False,
-        "message": "Вход по одноразовому коду устарел. Пожалуйста, используйте вход по паролю через Huly SDK."
-    }
-
-async def submit_tracker_code_login(session_id: str, code: str) -> Dict[str, Any]:
-    return {
-        "success": False,
-        "message": "Вход по коду не поддерживается."
-    }
-
-def get_tracker_shot_path(session_id: str) -> Optional[str]:
-    return None
-
-async def run_tracker_login(timeout_seconds: int = 120) -> Dict[str, Any]:
-    return {
-        "success": False,
-        "message": "Используйте форму входа по логину и паролю."
-    }
-
 async def logout_tracker() -> Dict[str, Any]:
     await save_settings({
         "tracker_token": "",

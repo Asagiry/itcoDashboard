@@ -78,17 +78,6 @@ class TestTeamsResponse(BaseModel):
     response_body: str
     error: Optional[str] = None
 
-class ParseCurlRequest(BaseModel):
-    curl_command: str
-
-class ParseCurlResponse(BaseModel):
-    success: bool
-    url: Optional[str] = None
-    auth_header_name: Optional[str] = None
-    auth_token: Optional[str] = None
-    headers: Dict[str, str] = {}
-    error: Optional[str] = None
-
 class UpdateShiftRequest(BaseModel):
     start_time: Optional[str] = Field(None, description="Время начала смены (HH:MM:SS или HH:MM)")
     end_time: Optional[str] = Field(None, description="Время завершения смены (HH:MM:SS или HH:MM)")
@@ -180,13 +169,6 @@ class TrackerPasswordLoginResponse(BaseModel):
     account_name: Optional[str] = ""
     issues_count: int = 0
     logs: List[str] = []
-
-class TrackerCodeStartRequest(BaseModel):
-    email: str = Field(..., description="E-mail пользователя ITCO Tracker")
-
-class TrackerCodeSubmitRequest(BaseModel):
-    session_id: str = Field(..., description="ID сессии входа")
-    code: str = Field(..., description="Одноразовый код из письма")
 
 class TrackerLogsResponse(BaseModel):
     success: bool

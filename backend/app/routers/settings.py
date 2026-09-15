@@ -6,9 +6,7 @@ from ..database import get_all_settings, save_settings
 from ..schemas import (
     SettingsSchema,
     TestTeamsRequest,
-    TestTeamsResponse,
-    ParseCurlRequest,
-    ParseCurlResponse
+    TestTeamsResponse
 )
 from ..browser_auth import (
     fetch_teams_conversations,
@@ -16,7 +14,6 @@ from ..browser_auth import (
     extract_user_profile
 )
 from ..teams_client import decode_token_info
-from ..curl_parser import parse_curl_command
 
 router = APIRouter(prefix="/api", tags=["settings"])
 
@@ -138,32 +135,6 @@ async def test_teams_endpoint(req: TestTeamsRequest):
         url=target_url,
         response_body=resp_text,
         error=None if success else f"Teams вернул статус {status_code}"
-    )
-
-@router.post("/settings/parse-curl", response_model=ParseCurlResponse)
-async def parse_curl_endpoint(req: ParseCurlRequest):
-    success, url, auth_header, auth_token, headers, err = parse_curl_command(req.curl_command)
-    if not success:
-        return ParseCurlResponse(success=False, error=err)
-
-    save_dict = {}
-    if url:
-        save_dict["director_chat_url"] = url
-    if auth_token:
-        save_dict["auth_token"] = auth_token
-    if auth_header:
-        save_dict["auth_header_name"] = auth_header
-    if headers:
-        save_dict["custom_headers"] = json.dumps(headers)
-    if save_dict:
-        await save_settings(save_dict)
-
-    return ParseCurlResponse(
-        success=True,
-        url=url,
-        auth_header_name=auth_header,
-        auth_token=auth_token,
-        headers=headers
     )
 
 @router.get("/teams/chats")

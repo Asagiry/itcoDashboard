@@ -65,15 +65,6 @@ export interface TestTeamsResponse {
   error?: string | null;
 }
 
-export interface ParseCurlResponse {
-  success: boolean;
-  url?: string;
-  auth_header_name?: string;
-  auth_token?: string;
-  headers: Record<string, string>;
-  error?: string | null;
-}
-
 export interface TeamsChat {
   id: string;
   title: string;

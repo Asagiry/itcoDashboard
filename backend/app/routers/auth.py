@@ -11,12 +11,6 @@ from ..schemas import (
     TeamsEmailStartRequest,
     TeamsEmailSubmitRequest
 )
-from ..browser_auth import (
-    run_browser_login,
-    run_headless_refresh,
-    has_browser_profile
-)
-
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/login", response_model=LoginResponse)
@@ -50,23 +44,6 @@ async def get_me_endpoint(request: Request):
             "name": acc_name
         }
     }
-
-@router.get("/browser-status")
-async def browser_status_endpoint():
-    return {
-        "success": True,
-        "has_profile": has_browser_profile()
-    }
-
-@router.post("/browser-login")
-async def browser_login_endpoint():
-    result = await run_browser_login(timeout_seconds=180)
-    return result
-
-@router.post("/browser-refresh")
-async def browser_refresh_endpoint():
-    result = await run_headless_refresh()
-    return result
 
 # --- Teams e-mail OTP login ---
 
