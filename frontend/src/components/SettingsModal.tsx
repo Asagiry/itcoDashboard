@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageSquare, Kanban, RotateCcw, Coins } from 'lucide-react';
+import { X, Save, MessageSquare, Kanban, Coins } from 'lucide-react';
 import { AppSettings, TeamsChat, TrackerAuthStatus } from '../types';
 import { api } from '../api/client';
 import { TeamsSettingsTab } from './settings/TeamsSettingsTab';
 import { TrackerSettingsTab } from './settings/TrackerSettingsTab';
 import { SalarySettingsTab } from './settings/SalarySettingsTab';
-import { ShiftResetTab } from './settings/ShiftResetTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSettingsSaved: () => void;
-  onResetTodayShift: () => Promise<void>;
   showToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
 }
 
@@ -19,7 +17,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   onSettingsSaved,
-  onResetTodayShift,
   showToast,
 }) => {
   const [settings, setSettings] = useState<AppSettings>({
@@ -32,7 +29,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     monthly_rate: 35000,
   });
 
-  const [activeTab, setActiveTab] = useState<'teams' | 'tracker' | 'salary' | 'reset'>('teams');
+  const [activeTab, setActiveTab] = useState<'teams' | 'tracker' | 'salary'>('teams');
   const [isSaving, setIsSaving] = useState(false);
   const [teamsChats, setTeamsChats] = useState<TeamsChat[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
@@ -156,18 +153,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Coins className="w-4 h-4" />
             <span>Оклад и ставки</span>
           </button>
-
-          <button
-            onClick={() => setActiveTab('reset')}
-            className={`px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer select-none ${
-              activeTab === 'reset'
-                ? 'border-amber-600 text-amber-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Сброс смены</span>
-          </button>
         </div>
 
         {/* Tab Content */}
@@ -195,13 +180,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <SalarySettingsTab
               settings={settings}
               setSettings={setSettings}
-            />
-          )}
-
-          {activeTab === 'reset' && (
-            <ShiftResetTab
-              onResetTodayShift={onResetTodayShift}
-              showToast={showToast}
             />
           )}
         </div>

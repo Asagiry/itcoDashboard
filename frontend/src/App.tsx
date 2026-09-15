@@ -165,17 +165,6 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleResetTodayShift = async () => {
-    try {
-      const res = await api.resetTodayShift();
-      setShift(res.shift);
-      showToast('info', 'Статус сброшен', res.message);
-      loadHistory();
-    } catch (err: any) {
-      showToast('error', 'Не удалось сбросить смену', err.message);
-    }
-  };
-
   if (!isAuthenticated) {
     return (
       <>
@@ -248,7 +237,6 @@ export const App: React.FC = () => {
           loadTodayShift();
           loadSalaryStats();
         }}
-        onResetTodayShift={handleResetTodayShift}
         showToast={showToast}
       />
 
