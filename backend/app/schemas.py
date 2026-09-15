@@ -20,9 +20,15 @@ class SettingsSchema(BaseModel):
     token_info: Optional[Dict[str, Any]] = Field(None, description="Информация о сроке жизни токена")
     has_browser_profile: Optional[bool] = Field(False, description="Наличие сохранённой сессии браузера")
     auto_refresh_active: Optional[bool] = Field(False, description="Флаг автоматического обновления сессии")
-    account_name: Optional[str] = Field("Vladimir Epishin", description="Имя пользователя Teams")
+    account_name: Optional[str] = Field("", description="Имя пользователя Teams")
     account_status: Optional[str] = Field("active", description="active | inactive")
     last_login_at: Optional[str] = Field(None, description="Время входа / обновления токена")
+
+class UpdateShiftRequest(BaseModel):
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    status: Optional[str] = None
+    daily_report: Optional[str] = None
 
 class ShiftSchema(BaseModel):
     id: Optional[int] = None

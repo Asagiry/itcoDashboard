@@ -132,24 +132,28 @@ async def login_endpoint(payload: LoginRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный логин или пароль"
         )
+    settings = await get_all_settings()
+    acc_name = (settings.get("account_name") or payload.username).strip()
     token = create_auth_token(payload.username.strip())
     return LoginResponse(
         success=True,
         token=token,
         user={
             "username": payload.username.strip(),
-            "name": "Vladimir Epishin"
+            "name": acc_name
         }
     )
 
 @app.get("/api/auth/me")
 async def get_me_endpoint(request: Request):
-    username = getattr(request.state, "username", "vepishin")
+    username = getattr(request.state, "username", "admin")
+    settings = await get_all_settings()
+    acc_name = (settings.get("account_name") or username).strip()
     return {
         "success": True,
         "user": {
             "username": username,
-            "name": "Vladimir Epishin"
+            "name": acc_name
         }
     }
 
@@ -401,6 +405,53 @@ async def end_shift(req: EndShiftRequest):
 async def get_history(limit: int = 100):
     rows = await get_shift_history(limit=limit)
     return rows
+
+@app.put("/api/shifts/{date_str}", response_model=UpdateShiftResponse)
+async def update_shift_endpoint(date_str: str, req: UpdateShiftRequest):
+    shift = await get_shift_by_date(date_str)
+    
+    update_fields = {}
+    if req.start_time is not None:
+        val = req.start_time.strip()
+        if val and len(val.split(":")) == 2:
+            val += ":00"
+        update_fields["start_time"] = val if val else None
+        
+    if req.end_time is not None:
+        val = req.end_time.strip()
+        if val and len(val.split(":")) == 2:
+            val += ":00"
+        update_fields["end_time"] = val if val else None
+        
+    if req.daily_report is not None:
+        update_fields["daily_report"] = req.daily_report.strip()
+        
+    if req.status is not None:
+        update_fields["status"] = req.status.strip()
+    else:
+        curr_start = update_fields.get("start_time", (shift or {}).get("start_time"))
+        curr_end = update_fields.get("end_time", (shift or {}).get("end_time"))
+        if curr_start and curr_end:
+            update_fields["status"] = "completed"
+        elif curr_start:
+            update_fields["status"] = "in_progress"
+        else:
+            update_fields["status"] = (shift or {}).get("status", "not_started")
+
+    updated = await create_or_update_shift(date_str, **update_fields)
+    return UpdateShiftResponse(
+        success=True,
+        shift=ShiftSchema(**updated),
+        message=f"Данные за смену {date_str} успешно сохранены!"
+    )
+
+@app.delete("/api/shifts/{date_str}")
+async def delete_shift_endpoint(date_str: str):
+    await delete_shift_by_date(date_str)
+    return {
+        "success": True,
+        "message": f"Смена на дату {date_str} удалена"
+    }
 
 def _parse_time_sec(t_str: Optional[str]) -> Optional[int]:
     if not t_str:

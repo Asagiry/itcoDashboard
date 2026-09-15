@@ -5,7 +5,7 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginView } from './components/LoginView';
 import { ToastContainer } from './components/Toast';
-import { NavTab, Shift, ToastMessage } from './types';
+import { NavTab, Shift, ToastMessage, AuthUser } from './types';
 import { api, AUTH_TOKEN_KEY } from './api/client';
 import { useDynamicTitle } from './hooks/useDynamicTitle';
 
@@ -13,6 +13,7 @@ export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return !!localStorage.getItem(AUTH_TOKEN_KEY);
   });
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [currentTab, setCurrentTab] = useState<NavTab>('shift');
   const [shift, setShift] = useState<Shift | null>(null);
   const [history, setHistory] = useState<Shift[]>([]);
@@ -45,6 +46,17 @@ export const App: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const loadUser = async () => {
+    try {
+      const data = await api.getMe();
+      if (data.user) {
+        setUser(data.user);
+      }
+    } catch (err) {
+      console.error('Ошибка получения пользователя:', err);
+    }
+  };
+
   const loadTodayShift = async () => {
     try {
       const data = await api.getTodayShift();
@@ -67,6 +79,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      loadUser();
       loadTodayShift();
       loadHistory();
     }
@@ -99,7 +112,7 @@ export const App: React.FC = () => {
       await loadHistory();
       await loadTodayShift();
     } catch (err: any) {
-      showToast('error', 'Ошибка завершения смены', err.message);
+      showToast('error', 'Не удалось завершить смену', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -107,8 +120,9 @@ export const App: React.FC = () => {
 
   const handleSaveDraft = async (report: string) => {
     try {
-      await api.saveDraft(report);
-    } catch (err) {
+      const res = await api.saveDraft(report);
+      setShift(res.shift);
+    } catch (err: any) {
       console.error('Ошибка сохранения черновика:', err);
     }
   };
@@ -120,7 +134,7 @@ export const App: React.FC = () => {
       showToast('info', 'Статус сброшен', res.message);
       loadHistory();
     } catch (err: any) {
-      showToast('error', 'Ошибка сброса', err.message);
+      showToast('error', 'Не удалось сбросить смену', err.message);
     }
   };
 
@@ -130,6 +144,7 @@ export const App: React.FC = () => {
         <LoginView
           onLoginSuccess={() => {
             setIsAuthenticated(true);
+            loadUser();
           }}
         />
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -145,6 +160,7 @@ export const App: React.FC = () => {
         shift={shift}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onLogout={() => api.logout()}
+        user={user}
       />
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
@@ -160,7 +176,13 @@ export const App: React.FC = () => {
         )}
 
         {currentTab === 'history' && (
-          <HistoryView history={history} onRefresh={loadHistory} />
+          <HistoryView
+            history={history}
+            onRefresh={() => {
+              loadHistory();
+              loadTodayShift();
+            }}
+          />
         )}
       </main>
 

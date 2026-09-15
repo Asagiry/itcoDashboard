@@ -47,7 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [isChangingAccount, setIsChangingAccount] = useState(false);
   const [isTestingTeams, setIsTestingTeams] = useState(false);
-  const [emailAddr, setEmailAddr] = useState('vepishin@it-co.ru');
+  const [emailAddr, setEmailAddr] = useState('');
   const [emailSid, setEmailSid] = useState<string | null>(null);
   const [emailStage, setEmailStage] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
@@ -666,7 +666,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             type="email"
                             value={emailAddr}
                             onChange={(e) => setEmailAddr(e.target.value)}
-                            placeholder="vepishin@it-co.ru"
+                            placeholder="name@it-co.ru"
                             className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
                           />
                           <button

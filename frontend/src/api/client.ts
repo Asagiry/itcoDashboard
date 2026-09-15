@@ -136,6 +136,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  deleteShift: (date: string): Promise<{ success: boolean; message: string }> =>
+    fetchJson(`${API_BASE}/shifts/${date}`, {
+      method: 'DELETE',
+    }),
+
   login: (username: string, password: string): Promise<LoginResponse> =>
     fetchJson<LoginResponse>(`${API_BASE}/auth/login`, {
       method: 'POST',

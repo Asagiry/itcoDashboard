@@ -10,10 +10,16 @@ import {
   X,
   CheckCircle2,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Edit2,
+  Trash2,
+  Save,
+  RotateCcw,
+  Loader2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Shift } from '../types';
+import { api } from '../api/client';
 
 interface HistoryViewProps {
   history: Shift[];
@@ -35,10 +41,19 @@ const MONTH_NAMES_RU: Record<string, string> = {
   '12': 'Декабрь',
 };
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ history, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  // Edit shift state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
+  const [editReport, setEditReport] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -124,6 +139,53 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
       navigator.clipboard.writeText(shift.daily_report);
       if (shift.id) setCopiedId(shift.id);
       setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  const handleOpenShift = (shift: Shift) => {
+    setSelectedShift(shift);
+    setEditStartTime(shift.start_time || '10:00:00');
+    setEditEndTime(shift.end_time || '18:00:00');
+    setEditReport(shift.daily_report || '');
+    setIsEditing(false);
+    setSaveSuccess(false);
+  };
+
+  const handleSaveShift = async () => {
+    if (!selectedShift) return;
+    setIsSaving(true);
+    try {
+      const res = await api.updateShift(selectedShift.date, {
+        start_time: editStartTime.trim() || undefined,
+        end_time: editEndTime.trim() || undefined,
+        daily_report: editReport.trim(),
+      });
+      setSelectedShift(res.shift);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      setIsEditing(false);
+      onRefresh?.();
+    } catch (err: any) {
+      alert(`Ошибка при сохранении смены: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteShift = async () => {
+    if (!selectedShift) return;
+    if (!window.confirm(`Вы действительно хотите удалить запись смены за ${selectedShift.date}?`)) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await api.deleteShift(selectedShift.date);
+      setSelectedShift(null);
+      onRefresh?.();
+    } catch (err: any) {
+      alert(`Ошибка при удалении смены: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -321,7 +383,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
                   <tr
                     key={row.date}
                     className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
-                    onClick={() => setSelectedShift(row)}
+                    onClick={() => handleOpenShift(row)}
                   >
                     <td className="px-6 py-4.5 font-bold text-slate-900 whitespace-nowrap">
                       {row.date}
@@ -375,9 +437,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
                           </button>
                         )}
                         <button
-                          onClick={() => setSelectedShift(row)}
+                          onClick={() => handleOpenShift(row)}
                           className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                          title="Открыть детали"
+                          title="Открыть детали / Редактировать"
                         >
                           <ChevronRight className="w-4 h-4" />
                         </button>
@@ -394,80 +456,245 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
       {selectedShift &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150"
             onClick={() => setSelectedShift(null)}
           >
             <div
-              className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">
-                    Рабочий день: {selectedShift.date}
-                  </h3>
+              {/* Header */}
+              <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+                      <span>{isEditing ? 'Правка смены:' : 'Рабочий день:'} {selectedShift.date}</span>
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      {selectedShift.status === 'completed' && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" /> Завершена
+                        </span>
+                      )}
+                      {selectedShift.status === 'in_progress' && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                          <Clock className="w-3 h-3" /> В процессе
+                        </span>
+                      )}
+                      {selectedShift.status === 'not_started' && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                          Не начата
+                        </span>
+                      )}
+                      {saveSuccess && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md animate-in fade-in">
+                          <Check className="w-3 h-3" /> Сохранено!
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setSelectedShift(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+
+                <div className="flex items-center gap-2">
+                  {!isEditing ? (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold transition-colors cursor-pointer"
+                      title="Редактировать время и отчёт"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Редактировать</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditStartTime(selectedShift.start_time || '10:00:00');
+                        setEditEndTime(selectedShift.end_time || '18:00:00');
+                        setEditReport(selectedShift.daily_report || '');
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Отмена</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedShift(null)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                  <div>
-                    <span className="text-xs text-slate-400 font-medium block">Начало</span>
-                    <span className="text-lg font-bold font-mono text-slate-800">
-                      {selectedShift.start_time || '—'}
-                    </span>
+              {/* Body */}
+              <div className="p-5 sm:p-6 space-y-4">
+                {!isEditing ? (
+                  <>
+                    <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                      <div>
+                        <span className="text-xs text-slate-400 font-medium block">Начало</span>
+                        <span className="text-lg font-bold font-mono text-slate-800">
+                          {selectedShift.start_time || '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-400 font-medium block">Завершение</span>
+                        <span className="text-lg font-bold font-mono text-slate-800">
+                          {selectedShift.end_time || '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-400 font-medium block">Отработано</span>
+                        <span className="text-lg font-bold text-blue-600 font-mono">
+                          {calculateDuration(selectedShift.start_time, selectedShift.end_time)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-semibold text-slate-700">
+                          Текст отчёта за день
+                        </h4>
+                        {selectedShift.daily_report && (
+                          <button
+                            onClick={() => handleCopyReport(selectedShift)}
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Скопировать</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-sm text-slate-800 whitespace-pre-wrap font-sans leading-relaxed max-h-72 overflow-y-auto">
+                        {selectedShift.daily_report || (
+                          <span className="text-slate-400 italic">Отчёт не был заполнен.</span>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Время начала смены
+                        </label>
+                        <input
+                          type="text"
+                          value={editStartTime}
+                          onChange={(e) => setEditStartTime(e.target.value)}
+                          placeholder="10:00:00"
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Время завершения смены
+                        </label>
+                        <input
+                          type="text"
+                          value={editEndTime}
+                          onChange={(e) => setEditEndTime(e.target.value)}
+                          placeholder="18:00:00"
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/60 border border-blue-100 text-xs text-blue-900">
+                      <span className="font-medium">Расчётное рабочее время:</span>
+                      <span className="font-bold font-mono text-sm text-blue-700">
+                        {calculateDuration(editStartTime, editEndTime)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Текст отчёта за день
+                      </label>
+                      <textarea
+                        rows={6}
+                        value={editReport}
+                        onChange={(e) => setEditReport(e.target.value)}
+                        placeholder="Что было сделано за рабочий день..."
+                        className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all resize-y leading-relaxed font-sans"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-400 font-medium block">Завершение</span>
-                    <span className="text-lg font-bold font-mono text-slate-800">
-                      {selectedShift.end_time || '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 font-medium block">Отработано</span>
-                    <span className="text-lg font-bold text-blue-600">
-                      {calculateDuration(selectedShift.start_time, selectedShift.end_time)}
-                    </span>
-                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <div>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteShift}
+                      disabled={isDeleting || isSaving}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isDeleting ? 'Удаление...' : 'Удалить смену'}</span>
+                    </button>
+                  )}
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-semibold text-slate-700">
-                      Текст отчёта за день
-                    </h4>
-                    {selectedShift.daily_report && (
+                <div className="flex items-center gap-2">
+                  {!isEditing ? (
+                    <>
                       <button
-                        onClick={() => handleCopyReport(selectedShift)}
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer"
+                        onClick={() => setIsEditing(true)}
+                        className="px-5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold text-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
                       >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Скопировать</span>
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Редактировать</span>
                       </button>
-                    )}
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-sm text-slate-800 whitespace-pre-wrap font-sans leading-relaxed max-h-72 overflow-y-auto">
-                    {selectedShift.daily_report || (
-                      <span className="text-slate-400 italic">Отчёт не был заполнен.</span>
-                    )}
-                  </div>
+                      <button
+                        onClick={() => setSelectedShift(null)}
+                        className="px-6 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors cursor-pointer"
+                      >
+                        Закрыть
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setIsEditing(false);
+                          setEditStartTime(selectedShift.start_time || '10:00:00');
+                          setEditEndTime(selectedShift.end_time || '18:00:00');
+                          setEditReport(selectedShift.daily_report || '');
+                        }}
+                        disabled={isSaving}
+                        className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        onClick={handleSaveShift}
+                        disabled={isSaving}
+                        className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-600/20 hover:shadow-lg transition-all cursor-pointer inline-flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Сохранение...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            <span>Сохранить изменения</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
                 </div>
-              </div>
-
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-                <button
-                  onClick={() => setSelectedShift(null)}
-                  className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors cursor-pointer"
-                >
-                  Закрыть
-                </button>
               </div>
             </div>
           </div>,

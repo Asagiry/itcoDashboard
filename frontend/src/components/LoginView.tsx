@@ -7,7 +7,7 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('vepishin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -118,7 +118,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 />
                 <span className="text-xs font-medium text-slate-600">Вечная сессия</span>
               </label>
-              <span className="text-[11px] text-slate-400">Только для vepishin</span>
+              <span className="text-[11px] text-slate-400">Личный кабинет</span>
             </div>
 
             <button

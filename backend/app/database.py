@@ -4,10 +4,7 @@ from typing import Optional, Dict, Any, List
 
 DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(os.path.dirname(__file__), "..", "dashboard.db"))
 
-DEFAULT_DIRECTOR_URL = (
-    "https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/"
-    "19%3Auni01_qdehqktmkxxgh2ltgoat43ixmtfsmseojqajsi4iedcs2s6u4kaq%40thread.v2/messages"
-)
+DEFAULT_DIRECTOR_URL = ""
 DEFAULT_DIRECTOR_MESSAGE = "Здравствуйте, я на рабочем месте"
 
 _db_initialized = False

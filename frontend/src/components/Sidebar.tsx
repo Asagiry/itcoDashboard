@@ -7,7 +7,7 @@ import {
   CircleDot,
   LogOut
 } from 'lucide-react';
-import { NavTab, Shift } from '../types';
+import { NavTab, Shift, AuthUser } from '../types';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -15,6 +15,7 @@ interface SidebarProps {
   shift: Shift | null;
   onOpenSettings: () => void;
   onLogout?: () => void;
+  user?: AuthUser | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -23,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   shift,
   onOpenSettings,
   onLogout,
+  user,
 }) => {
   const navItems = [
     {
@@ -138,13 +140,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {onLogout && (
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-              <span className="font-medium text-slate-700 text-[12px]">vepishin</span>
+            <div className="flex items-center gap-2 max-w-[130px] truncate" title={user?.name || user?.username || 'Пользователь'}>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+              <span className="font-medium text-slate-700 text-[12px] truncate">
+                {user?.name || user?.username || 'Пользователь'}
+              </span>
             </div>
             <button
               onClick={onLogout}
-              className="flex items-center gap-1 text-slate-400 hover:text-rose-600 transition-colors py-1 px-2 rounded-lg hover:bg-rose-50"
+              className="flex items-center gap-1 text-slate-400 hover:text-rose-600 transition-colors py-1 px-2 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0"
               title="Выйти из системы"
             >
               <LogOut className="w-3.5 h-3.5" />

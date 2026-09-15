@@ -74,7 +74,7 @@ class BackendTestCase(unittest.TestCase):
         response = self.client.get("/api/settings")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("teams.live.com", data["director_chat_url"])
+        self.assertIn("director_chat_url", data)
         self.assertEqual(data["director_message_template"], "Здравствуйте, я на рабочем месте")
 
     def test_03_shift_lifecycle(self):
@@ -140,6 +140,27 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(data["shift_rate"], 1667.0)
         self.assertIn("completed_earned_total", data)
         self.assertIn("total_month_earned_live", data)
+
+    def test_06_update_and_delete_shift(self):
+        # Update shift date
+        test_date = "2026-09-01"
+        r = self.client.put(f"/api/shifts/{test_date}", json={
+            "start_time": "10:00:00",
+            "end_time": "19:00:00",
+            "daily_report": "Тест редактирования отчета"
+        })
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["shift"]["start_time"], "10:00:00")
+        self.assertEqual(data["shift"]["end_time"], "19:00:00")
+        self.assertEqual(data["shift"]["daily_report"], "Тест редактирования отчета")
+        self.assertEqual(data["shift"]["status"], "completed")
+
+        # Delete shift
+        r = self.client.delete(f"/api/shifts/{test_date}")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["success"])
 
 if __name__ == "__main__":
     unittest.main()

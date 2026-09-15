@@ -308,7 +308,7 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
                 pass
         return []
 
-    my_name = (settings.get("account_name") or "Vladimir Epishin").strip()
+    my_name = (settings.get("account_name") or "").strip()
 
     headers = {
         auth_header_name: auth_token.strip(),
@@ -349,7 +349,7 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
                     title = known_names[cid]
                 elif topic and topic != cid:
                     title = topic
-                elif last_disp and last_disp.lower() not in (my_name.lower(), "vladimir epishin"):
+                elif last_disp and (not my_name or last_disp.lower() != my_name.lower()):
                     title = last_disp
                 else:
                     # Fetch recent messages of this conversation to discover the other person's display name
@@ -360,7 +360,7 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
                         if mr.status_code == 200:
                             for m in mr.json().get("messages", []):
                                 m_disp = (m.get("imdisplayname") or "").strip()
-                                if m_disp and m_disp.lower() not in (my_name.lower(), "vladimir epishin"):
+                                if m_disp and (not my_name or m_disp.lower() != my_name.lower()):
                                     title = m_disp
                                     break
                     except Exception:
