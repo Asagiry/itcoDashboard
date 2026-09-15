@@ -11,7 +11,15 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@hcengineering/account-client": "^0.7.423",
     "@hcengineering/api-client": "^0.7.423",
+    "@hcengineering/client": "^0.7.423",
+    "@hcengineering/client-resources": "^0.7.423",
+    "@hcengineering/collaborator-client": "^0.7.423",
+    "@hcengineering/core": "^0.7.423",
+    "@hcengineering/platform": "^0.7.423",
+    "@hcengineering/text": "^0.7.423",
+    "@hcengineering/text-markdown": "^0.7.423",
     "ws": "^8.21.3"
   }
 }

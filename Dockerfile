@@ -1,10 +1,14 @@
-# Stage 1: Build frontend
+# Stage 1: Build frontend and install Huly client dependencies
 FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend ./
 RUN npm run build
+
+WORKDIR /app/backend/huly_client
+COPY backend/huly_client/package*.json ./
+RUN npm install --omit=dev
 
 # Stage 2: Runtime
 FROM python:3.12-slim
@@ -15,6 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js runtime for Huly bridge
+COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
 
 # Install python dependencies
 COPY backend/requirements.txt /app/backend/requirements.txt
@@ -28,13 +35,16 @@ RUN python -m playwright install --with-deps chromium
 # Copy application files
 COPY run.py /app/run.py
 COPY backend/app /app/backend/app
+COPY backend/huly_bridge.cjs /app/backend/huly_bridge.cjs
+COPY backend/huly_client /app/backend/huly_client
+COPY --from=frontend-builder /app/backend/huly_client/node_modules /app/backend/huly_client/node_modules
 COPY backend/dashboard.db* /app/backend/
 COPY backend/named_chats.example.json /app/backend/named_chats.example.json
 COPY backend/named_chats.json* /app/backend/
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-# Ensure persistence directories + empty chats cache (file may not exist in repo)
-RUN mkdir -p /app/data && touch /app/backend/teams_chats_cache.json
+# Ensure persistence directories + attachments directory + empty chats cache
+RUN mkdir -p /app/data /app/backend/media/attachments && touch /app/backend/teams_chats_cache.json
 
 EXPOSE 8000
 

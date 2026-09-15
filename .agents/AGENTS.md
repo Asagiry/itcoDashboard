@@ -28,3 +28,11 @@ ITCO Dashboard is a web application for work shift tracking, real-time earnings 
 - Build frontend: `cd frontend && npm run build && cd ..`
 - Run locally: `python run.py` (or `python run.py --dev`)
 - Docker build: `docker compose up -d --build`
+
+## 4. Documentation & Deep Dives
+- **Tracker Integration Guide**: [`.agents/tracker_guide.md`](file:///c:/Users/VibeCode/itcoDashboard/.agents/tracker_guide.md)
+- **Architecture Overview**: [`.agents/architecture/overview.md`](file:///c:/Users/VibeCode/itcoDashboard/.agents/architecture/overview.md)
+- **Tracker Integration Architecture**: [`.agents/architecture/tracker_integration.md`](file:///c:/Users/VibeCode/itcoDashboard/.agents/architecture/tracker_integration.md)
+- **Shifts & Teams Automation**: [`.agents/architecture/shifts_and_teams.md`](file:///c:/Users/VibeCode/itcoDashboard/.agents/architecture/shifts_and_teams.md)
+- **Database Schema**: [`.agents/architecture/database_schema.md`](file:///c:/Users/VibeCode/itcoDashboard/.agents/architecture/database_schema.md)
+- **Frontend Architecture**: [`.agents/architecture/frontend_architecture.md`](file:///c:/Users/VibeCode/itcoDashboard/.agents/architecture/frontend_architecture.md)

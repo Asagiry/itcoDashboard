@@ -13,3 +13,4 @@ services:
     volumes:
       - ./data:/app/data
       - ./browser_data:/app/backend/browser_data
+      - ./media:/app/backend/media
