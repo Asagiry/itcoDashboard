@@ -188,7 +188,8 @@ class BackendTestCase(unittest.TestCase):
         self.client.delete(f"/api/shifts/{today}")
         self.client.post("/api/shifts/start")
 
-        fake_now = datetime(2026, 9, 15, 17, 35, 0, tzinfo=MOSCOW_TZ)
+        now = datetime.now(MOSCOW_TZ)
+        fake_now = datetime(now.year, now.month, now.day, 17, 35, 0, tzinfo=MOSCOW_TZ)
         with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_now):
             r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет в 17:35"})
             self.assertEqual(r.status_code, 200)
@@ -209,7 +210,7 @@ class BackendTestCase(unittest.TestCase):
 
         self.client.delete(f"/api/shifts/{today}")
         self.client.post("/api/shifts/start")
-        fake_1800 = datetime(2026, 9, 15, 18, 0, 0, tzinfo=MOSCOW_TZ)
+        fake_1800 = datetime(now.year, now.month, now.day, 18, 0, 0, tzinfo=MOSCOW_TZ)
         with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_1800):
             r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет ровно в 18:00"})
             self.assertEqual(r.status_code, 200)
