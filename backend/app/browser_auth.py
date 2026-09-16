@@ -23,10 +23,7 @@ CHATS_CACHE_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 NAMED_CHATS_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "named_chats.json"))
 NAMED_CHATS_EXAMPLE_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "named_chats.example.json"))
 
-KNOWN_CHAT_NAMES = {
-    "19:53563ee0e21748c1834f311533c7ab5a@thread.skype": "IT Co. Часы",
-    "19:aebc4f4bb3f746ce82fc6678d4f36fee@thread.skype": "IT Co. Daily",
-}
+KNOWN_CHAT_NAMES: Dict[str, str] = {}
 
 _browser_profile_lock = asyncio.Lock()
 
@@ -429,21 +426,6 @@ async def fetch_teams_conversations(auth_token: str = "", auth_header_name: str 
                     "url": full_url,
                     "preview": clean_content
                 })
-
-            # Ensure essential group chats are always present
-            pinned_chats = [
-                ("19:53563ee0e21748c1834f311533c7ab5a@thread.skype", "IT Co. Часы", ""),
-                ("19:aebc4f4bb3f746ce82fc6678d4f36fee@thread.skype", "IT Co. Daily", "Дейли отчёты команды")
-            ]
-            for pid, ptitle, ppreview in reversed(pinned_chats):
-                if pid not in seen_ids:
-                    enc_pid = urllib.parse.quote(pid, safe="")
-                    chat_list.insert(0, {
-                        "id": pid,
-                        "title": ptitle,
-                        "url": f"https://teams.live.com/api/chatsvc/consumer/v1/users/ME/conversations/{enc_pid}/messages",
-                        "preview": ppreview
-                    })
 
             if chat_list:
                 try:

@@ -184,13 +184,12 @@ class BackendTestCase(unittest.TestCase):
         self.assertTrue(r.json()["success"])
 
     def test_07_scheduled_shift_report_logic(self):
-        today = get_today_str()
-        self.client.delete(f"/api/shifts/{today}")
-        self.client.post("/api/shifts/start")
-
-        now = datetime.now(MOSCOW_TZ)
-        fake_now = datetime(now.year, now.month, now.day, 17, 35, 0, tzinfo=MOSCOW_TZ)
+        fake_now = datetime(2026, 9, 15, 17, 35, 0, tzinfo=MOSCOW_TZ)
         with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_now):
+            today = "2026-09-15"
+            self.client.delete(f"/api/shifts/{today}")
+            self.client.post("/api/shifts/start")
+
             r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет в 17:35"})
             self.assertEqual(r.status_code, 200)
             data = r.json()
@@ -201,23 +200,26 @@ class BackendTestCase(unittest.TestCase):
             self.assertEqual(data["shift"]["report_scheduled_at"], "18:00:00")
             self.assertIn("18:00", data["message"])
 
-        r = self.client.post("/api/shifts/send-report-now")
-        self.assertEqual(r.status_code, 200)
-        data = r.json()
-        self.assertTrue(data["success"])
-        self.assertEqual(data["shift"]["report_status"], "sent")
-        self.assertIsNotNone(data["shift"]["report_sent_at"])
+            r = self.client.post("/api/shifts/send-report-now")
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            self.assertTrue(data["success"])
+            self.assertEqual(data["shift"]["report_status"], "sent")
+            self.assertIsNotNone(data["shift"]["report_sent_at"])
 
-        self.client.delete(f"/api/shifts/{today}")
-        self.client.post("/api/shifts/start")
-        fake_1800 = datetime(now.year, now.month, now.day, 18, 0, 0, tzinfo=MOSCOW_TZ)
+            self.client.delete(f"/api/shifts/{today}")
+
+        fake_1800 = datetime(2026, 9, 15, 18, 0, 0, tzinfo=MOSCOW_TZ)
         with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_1800):
+            today = "2026-09-15"
+            self.client.post("/api/shifts/start")
             r = self.client.post("/api/shifts/end", json={"daily_report": "Отчет ровно в 18:00"})
             self.assertEqual(r.status_code, 200)
             data = r.json()
             self.assertTrue(data["success"])
             self.assertEqual(data["shift"]["status"], "completed")
             self.assertEqual(data["shift"]["report_status"], "sent")
+            self.client.delete(f"/api/shifts/{today}")
 
     def test_08_tracker_endpoints(self):
         from backend.app.database import save_tracker_projects, save_tracker_issues
