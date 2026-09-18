@@ -52,11 +52,7 @@ def get_rounded_start_time() -> str:
     now = get_now_dt()
     if now.hour < 10 or (now.hour == 10 and now.minute == 0 and now.second == 0):
         return "10:00:00"
-    if now.minute > 0 or now.second > 0:
-        if now.hour >= 23:
-            return "23:59:00"
-        return f"{now.hour + 1:02d}:00:00"
-    return f"{now.hour:02d}:00:00"
+    return now.strftime("%H:%M:%S")
 
 def get_rounded_end_time() -> str:
     now = get_now_dt()
@@ -471,6 +467,8 @@ async def update_shift_endpoint(date_str: str, req: UpdateShiftRequest):
             
         if req.status is not None:
             update_fields["status"] = req.status.strip()
+            if update_fields["status"] == "in_progress" and req.end_time is None and "end_time" not in update_fields:
+                update_fields["end_time"] = None
         else:
             curr_start = update_fields.get("start_time", (shift or {}).get("start_time"))
             curr_end = update_fields.get("end_time", (shift or {}).get("end_time"))
@@ -480,6 +478,11 @@ async def update_shift_endpoint(date_str: str, req: UpdateShiftRequest):
                 update_fields["status"] = "in_progress"
             else:
                 update_fields["status"] = (shift or {}).get("status", "not_started")
+
+    if update_fields.get("status") == "in_progress":
+        if req.report_status is None and (shift or {}).get("report_status") == "scheduled":
+            update_fields["report_status"] = "not_scheduled"
+            update_fields["report_scheduled_at"] = None
 
     if req.report_status is not None:
         update_fields["report_status"] = req.report_status
