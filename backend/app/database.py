@@ -263,6 +263,8 @@ async def get_tracker_issues(project_key: Optional[str] = None, status: Optional
         if status and status != "all":
             query += " AND status = ?"
             params.append(status)
+        else:
+            query += " AND status NOT IN ('ready_for_production', 'testing')"
         if search and search.strip():
             s = f"%{search.strip()}%"
             query += " AND (key LIKE ? OR title LIKE ? OR description LIKE ? OR project_name LIKE ?)"

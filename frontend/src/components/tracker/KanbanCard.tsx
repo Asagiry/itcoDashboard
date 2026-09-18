@@ -68,11 +68,11 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
       </h4>
 
       {/* Bottom Meta Bar */}
-      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 shrink-0">
-        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+      <div className="flex items-center justify-between gap-2 text-[11px] pt-2 border-t border-slate-100 shrink-0 min-w-0">
+        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider truncate">
           {issue.project_name || issue.project_key || 'МКС'}
         </span>
-        <span className="text-[10px] text-slate-400 font-medium">
+        <span className="text-[10px] text-slate-400 font-medium truncate" title={issue.assignee || 'vepishin@it-co.ru'}>
           {issue.assignee || 'vepishin@it-co.ru'}
         </span>
       </div>
