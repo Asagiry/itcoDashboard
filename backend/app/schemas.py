@@ -119,7 +119,7 @@ class TrackerIssueSchema(BaseModel):
     project_id: Optional[str] = ""
     project_key: Optional[str] = ""
     project_name: Optional[str] = ""
-    status: str = Field("todo", description="todo | in_progress | ready_for_testing | testing | review | ready_to_merge")
+    status: str = Field("todo", description="todo | in_progress | ready_for_testing | review | ready_to_merge")
     assignee: Optional[str] = ""
     priority: Optional[str] = "normal"
     component: Optional[str] = ""
@@ -135,7 +135,7 @@ class TrackerIssueSchema(BaseModel):
     updated_at: Optional[str] = None
 
 class TrackerStatusUpdateRequest(BaseModel):
-    status: str = Field(..., description="Новый статус задачи: todo, in_progress, ready_for_testing, testing, review, ready_to_merge")
+    status: str = Field(..., description="Новый статус задачи: todo, in_progress, ready_for_testing, review, ready_to_merge")
 
 class TrackerStatusUpdateResponse(BaseModel):
     success: bool

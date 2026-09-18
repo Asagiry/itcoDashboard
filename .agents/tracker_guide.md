@@ -42,15 +42,14 @@ node backend/huly_bridge.cjs update_status "<tracker_token>" "<account_id>" "М�
 
 ## 3. Статусы задач и соответствие колонкам
 
-На канбан-доске дашборда отображаются только **активные рабочие колонки** (задачи в `Ready for Production`, `Done`, `Resolved`, `Canceled` автоматически исключаются из синхронизации):
+На канбан-доске дашборда отображаются только **активные рабочие колонки** (задачи в `Testing`, `Ready for Production`, `Done`, `Resolved`, `Canceled` автоматически исключаются из синхронизации):
 
 | Статус в Dashboard | Название в UI | ID статуса в Huly | Цвет / Иконка |
 |---|---|---|---|
 | `todo` | **Todo** | `tracker:status:Todo` / `Backlog` | Серый (`Circle`) |
 | `in_progress` | **In progress** | `tracker:status:InProgress` | Синий (`Clock`) |
-| `review` | **review** | `69f9bb5a112005c7f3bf3c72` | Пурпурный (`Clock`) |
-| `ready_for_testing` | **ready for testing** | `6aa3c483f404981b798206bf` | Индиго (`FlaskConical`) |
-| `testing` | **Testing** | `69f9bb44112005c7f3bf3c6a` | Янтарный (`Clock`) |
+| `review` | **Review** | `69f9bb5a112005c7f3bf3c72` | Пурпурный (`Clock`) |
+| `ready_for_testing` | **Ready for testing** | `6aa3c483f404981b798206bf` | Индиго (`FlaskConical`) |
 | `ready_to_merge` | **Ready for merge** | `69fa066535e6ece6dbd474d2` | Изумрудный (`CheckCircle2`) |
 
 ---
