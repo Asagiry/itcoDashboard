@@ -217,6 +217,12 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
     year: 'numeric',
   });
 
+  const MONTHS_NAMES_RU = [
+    'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+    'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'
+  ];
+  const currentMonthName = MONTHS_NAMES_RU[currentTime.getMonth()];
+
   return (
     <div className="flex-1 w-full h-full p-4 sm:p-6 md:px-8 md:py-6 flex flex-col gap-5 overflow-y-auto lg:overflow-hidden">
       <div className="w-full bg-white px-6 py-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
@@ -247,7 +253,7 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
                 .{monthMoney.cents} ₽
               </span>
             </div>
-            <div className="text-xs text-slate-400 font-medium">За сентябрь</div>
+            <div className="text-xs text-slate-400 font-medium capitalize">За {currentMonthName}</div>
           </div>
 
           <div className="h-9 w-px bg-slate-200 hidden sm:block" />
@@ -441,12 +447,12 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
             </div>
           </div>
 
-          {/* Card 3: Доход за сентябрь */}
+          {/* Card 3: Доход за месяц */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between flex-1 relative overflow-hidden">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-base font-bold text-slate-900">
-                  Доход за сентябрь
+                <h3 className="text-base font-bold text-slate-900 capitalize">
+                  Доход за {currentMonthName}
                 </h3>
                 <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-500">
                   <Wallet className="w-4 h-4" />
@@ -484,7 +490,7 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
 
             <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
               <div>
-                Смен: <span className="font-semibold text-slate-700">{(salaryStats?.completed_shifts_count ?? 7)}</span>
+                Смен: <span className="font-semibold text-slate-700">{(salaryStats?.completed_shifts_count ?? 0)}</span>
               </div>
               <div className="text-slate-500 text-xs">
                 Ставка: <span className="font-semibold text-slate-700">1 667 ₽/смена</span>
