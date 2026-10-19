@@ -287,5 +287,50 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(normalize_tracker_status("Ready for production"), "ready_for_production")
         self.assertEqual(normalize_tracker_status("Done"), "ready_for_production")
 
+    def test_10_previous_shift_report(self):
+        from backend.app.database import get_previous_daily_report
+        # Date before all shifts has no previous report
+        prev_none = asyncio.run(get_previous_daily_report("1990-01-01"))
+        self.assertIsNone(prev_none)
+
+        # Clean up test dates
+        for d in ["2026-11-01", "2026-11-02", "2026-11-03"]:
+            self.client.delete(f"/api/shifts/{d}")
+
+        # Create shift for 2026-11-01 with report
+        r1 = self.client.put("/api/shifts/2026-11-01", json={
+            "start_time": "10:00:00",
+            "end_time": "18:00:00",
+            "daily_report": "Отчёт за 1 ноября: сделал форму логина",
+            "status": "completed"
+        })
+        self.assertEqual(r1.status_code, 200)
+
+        # Create shift for 2026-11-02 with empty report
+        r2 = self.client.put("/api/shifts/2026-11-02", json={
+            "start_time": "10:00:00",
+            "end_time": "18:00:00",
+            "daily_report": "   ",
+            "status": "completed"
+        })
+        self.assertEqual(r2.status_code, 200)
+
+        # Query previous report before 2026-11-03: should skip empty 11-02 and return 11-01 report
+        prev_report = asyncio.run(get_previous_daily_report("2026-11-03"))
+        self.assertEqual(prev_report, "Отчёт за 1 ноября: сделал форму логина")
+
+        # Create shift for 2026-11-03 and verify previous_report field in response
+        r3 = self.client.put("/api/shifts/2026-11-03", json={
+            "start_time": "10:00:00",
+            "status": "in_progress"
+        })
+        self.assertEqual(r3.status_code, 200)
+        data = r3.json()
+        self.assertEqual(data["shift"]["previous_report"], "Отчёт за 1 ноября: сделал форму логина")
+
+        # Clean up
+        for d in ["2026-11-01", "2026-11-02", "2026-11-03"]:
+            self.client.delete(f"/api/shifts/{d}")
+
 if __name__ == "__main__":
     unittest.main()

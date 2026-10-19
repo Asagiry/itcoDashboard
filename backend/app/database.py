@@ -220,6 +220,26 @@ async def delete_shift_by_date(date_str: str):
         await db.execute("DELETE FROM shifts WHERE date = ?", (date_str,))
         await db.commit()
 
+async def get_previous_daily_report(before_date: Optional[str]) -> Optional[str]:
+    await ensure_db_initialized()
+    if not before_date:
+        return None
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT daily_report FROM shifts
+            WHERE date < ? AND daily_report IS NOT NULL AND TRIM(daily_report) != ''
+            ORDER BY date DESC
+            LIMIT 1
+            """,
+            (before_date,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row and row["daily_report"]:
+                return row["daily_report"].strip()
+    return None
+
 # --- Tracker Database Functions ---
 
 async def get_tracker_projects() -> List[Dict[str, Any]]:

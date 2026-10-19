@@ -8,6 +8,7 @@ export interface Shift {
   end_time: string | null;
   status: ShiftStatus;
   daily_report: string;
+  previous_report?: string | null;
   raw_response_start?: string | null;
   raw_response_end?: string | null;
   report_status?: ReportStatus;

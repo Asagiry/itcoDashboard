@@ -12,6 +12,7 @@ from ..database import (
     get_shift_history,
     get_pending_scheduled_shifts,
     delete_shift_by_date,
+    get_previous_daily_report,
     get_all_settings,
     save_settings,
     DB_PATH
@@ -155,6 +156,14 @@ async def execute_send_daily_report(date_str: str, force: bool = False) -> tuple
 
     return success, status_code, resp_text
 
+async def _enrich_shift(shift: Optional[dict]) -> Optional[dict]:
+    if not shift:
+        return None
+    d = dict(shift)
+    if "date" in d:
+        d["previous_report"] = await get_previous_daily_report(d["date"])
+    return d
+
 @router.get("/today", response_model=ShiftSchema)
 async def get_today_shift():
     today = get_today_str()
@@ -170,7 +179,8 @@ async def get_today_shift():
             report_scheduled_at=None,
             report_sent_at=None
         )
-    return ShiftSchema(**shift)
+    shift_data = await _enrich_shift(shift)
+    return ShiftSchema(**shift_data)
 
 @router.post("/start", response_model=StartShiftResponse)
 async def start_shift():
@@ -238,9 +248,10 @@ async def start_shift():
         f"Внимание: отправка в Teams вернула код {status_code} ({resp_text[:100]}). Проверьте токен в настройках."
     )
 
+    shift_data = await _enrich_shift(updated_shift)
     return StartShiftResponse(
         success=True,
-        shift=ShiftSchema(**updated_shift),
+        shift=ShiftSchema(**shift_data),
         message=msg,
         teams_status_code=status_code,
         teams_response=resp_text
@@ -250,7 +261,8 @@ async def start_shift():
 async def save_draft(req: SaveDraftRequest):
     today = get_today_str()
     shift = await create_or_update_shift(today, daily_report=req.daily_report)
-    return {"success": True, "shift": ShiftSchema(**shift)}
+    shift_data = await _enrich_shift(shift)
+    return {"success": True, "shift": ShiftSchema(**shift_data)}
 
 @router.post("/end", response_model=EndShiftResponse)
 async def end_shift(req: EndShiftRequest):
@@ -294,9 +306,10 @@ async def end_shift(req: EndShiftRequest):
             report_scheduled_at=now_time
         )
         msg = f"Смена успешно завершена! Отчёт запланирован на отправку в {now_time[:5]}."
+        shift_data = await _enrich_shift(updated_shift)
         return EndShiftResponse(
             success=True,
-            shift=ShiftSchema(**updated_shift),
+            shift=ShiftSchema(**shift_data),
             message=msg,
             teams_status_code=None,
             teams_response=None
@@ -319,9 +332,10 @@ async def end_shift(req: EndShiftRequest):
         f"Локально смена закрыта. Статус Teams: {status_code} ({resp_text[:100]})."
     )
 
+    shift_data = await _enrich_shift(refreshed_shift)
     return EndShiftResponse(
         success=True,
-        shift=ShiftSchema(**refreshed_shift),
+        shift=ShiftSchema(**shift_data),
         message=msg,
         teams_status_code=status_code,
         teams_response=resp_text
@@ -348,9 +362,10 @@ async def send_report_now():
     refreshed_shift = await get_shift_by_date(today)
 
     msg = "Отчёт успешно отправлен в Teams!" if success else f"Ошибка отправки в Teams: {resp_text[:100]}"
+    shift_data = await _enrich_shift(refreshed_shift)
     return SendReportNowResponse(
         success=success,
-        shift=ShiftSchema(**refreshed_shift),
+        shift=ShiftSchema(**shift_data),
         message=msg,
         teams_status_code=status_code,
         teams_response=resp_text
@@ -489,9 +504,10 @@ async def update_shift_endpoint(date_str: str, req: UpdateShiftRequest):
         update_fields["report_sent_at"] = req.report_sent_at
 
     updated = await create_or_update_shift(date_str, **update_fields)
+    shift_data = await _enrich_shift(updated)
     return UpdateShiftResponse(
         success=True,
-        shift=ShiftSchema(**updated),
+        shift=ShiftSchema(**shift_data),
         message=f"Данные за смену {date_str} успешно сохранены!"
     )
 

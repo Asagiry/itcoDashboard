@@ -32,6 +32,7 @@ class ShiftSchema(BaseModel):
     end_time: Optional[str] = None
     status: str = Field("not_started", description="not_started | in_progress | completed")
     daily_report: Optional[str] = ""
+    previous_report: Optional[str] = Field(None, description="Текст отчета из предыдущей смены")
     raw_response_start: Optional[str] = None
     raw_response_end: Optional[str] = None
     report_status: Optional[str] = Field("not_scheduled", description="not_scheduled | scheduled | sending | sent | failed")

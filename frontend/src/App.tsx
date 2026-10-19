@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ShiftView } from './components/ShiftView';
 import { TrackerView } from './components/TrackerView';
@@ -183,6 +183,22 @@ export const App: React.FC = () => {
     (i) => i.status === 'in_progress' || i.status === 'todo'
   ).length;
 
+  const previousReport = useMemo(() => {
+    if (shift?.previous_report && shift.previous_report.trim().length > 0) {
+      return shift.previous_report.trim();
+    }
+    if (history && history.length > 0) {
+      const todayDate = shift?.date;
+      const prev = history.find(
+        (h) => (todayDate ? h.date < todayDate : true) && h.daily_report && h.daily_report.trim().length > 0
+      );
+      if (prev?.daily_report) {
+        return prev.daily_report.trim();
+      }
+    }
+    return null;
+  }, [shift?.previous_report, shift?.date, history]);
+
   return (
     <div className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 antialiased overflow-hidden font-sans">
       <Sidebar
@@ -202,6 +218,7 @@ export const App: React.FC = () => {
         {currentTab === 'shift' && (
           <ShiftView
             shift={shift}
+            previousReport={previousReport}
             onStartShift={handleStartShift}
             onEndShift={handleEndShift}
             onSendReportNow={handleSendReportNow}

@@ -10,7 +10,8 @@ import {
   Calendar,
   Building2,
   Wallet,
-  AlertCircle
+  AlertCircle,
+  Copy
 } from 'lucide-react';
 import { Shift, SalaryStats } from '../types';
 import { api } from '../api/client';
@@ -24,6 +25,7 @@ interface ShiftViewProps {
   onRefreshShift?: () => Promise<void>;
   onOpenSettings?: () => void;
   isLoading: boolean;
+  previousReport?: string | null;
 }
 
 export const ShiftView: React.FC<ShiftViewProps> = ({
@@ -34,6 +36,7 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
   onSaveDraft,
   onRefreshShift,
   isLoading,
+  previousReport,
 }) => {
   const [reportText, setReportText] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
@@ -41,6 +44,11 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
   const [currentTime, setCurrentTime] = useState(new Date());
   const [salaryStats, setSalaryStats] = useState<SalaryStats | null>(null);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const effectivePreviousReport = useMemo(() => {
+    const raw = previousReport ?? shift?.previous_report;
+    return raw && raw.trim().length > 0 ? raw.trim() : null;
+  }, [previousReport, shift?.previous_report]);
 
   const loadSalaryStats = async () => {
     try {
@@ -442,6 +450,21 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {isShiftInProgress && !reportText && effectivePreviousReport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportText(effectivePreviousReport);
+                    setDraftSaved(false);
+                    onSaveDraft(effectivePreviousReport).then(() => setDraftSaved(true));
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900 text-xs font-semibold transition-colors cursor-pointer"
+                  title="Подставить текст из отчёта предыдущей смены"
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Вставить из прошлой смены</span>
+                </button>
+              )}
               {isShiftInProgress && (
                 <button
                   onClick={() => onSaveDraft(reportText).then(() => setDraftSaved(true))}
@@ -467,7 +490,7 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
                   ? "Смена завершена. Отчёт зафиксирован и будет отправлен в Teams автоматически в " + (shift.report_scheduled_at || "18:00:00") + "."
                   : isShiftCompleted
                   ? "Смена за сегодня завершена."
-                  : "OnayTap\nMBA-378 3h\nMBA-379 3h\n..."
+                  : (effectivePreviousReport || "Опишите выполненные за день задачи...")
               }
               className="w-full flex-1 p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm text-slate-800 placeholder-slate-400 resize-none transition-all disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed font-sans leading-relaxed"
             />
