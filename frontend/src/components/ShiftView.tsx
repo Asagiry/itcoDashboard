@@ -11,7 +11,13 @@ import {
   Building2,
   Wallet,
   AlertCircle,
+<<<<<<< HEAD
   Copy
+=======
+  Edit2,
+  X,
+  Loader2
+>>>>>>> 84211e51f2b726d3e283139abebb67ae2100966f
 } from 'lucide-react';
 import { Shift, SalaryStats } from '../types';
 import { api } from '../api/client';
@@ -43,12 +49,35 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [salaryStats, setSalaryStats] = useState<SalaryStats | null>(null);
+  const [isEditingStart, setIsEditingStart] = useState(false);
+  const [newStartTime, setNewStartTime] = useState('');
+  const [isSavingStart, setIsSavingStart] = useState(false);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+<<<<<<< HEAD
   const effectivePreviousReport = useMemo(() => {
     const raw = previousReport ?? shift?.previous_report;
     return raw && raw.trim().length > 0 ? raw.trim() : null;
   }, [previousReport, shift?.previous_report]);
+=======
+  const handleSaveStartTime = async () => {
+    if (!shift) return;
+    setIsSavingStart(true);
+    try {
+      await api.updateShift(shift.date, {
+        start_time: newStartTime.trim(),
+        status: shift.status,
+      });
+      setIsEditingStart(false);
+      await onRefreshShift?.();
+      await loadSalaryStats();
+    } catch (err: any) {
+      alert(`Ошибка при сохранении времени начала смены: ${err.message}`);
+    } finally {
+      setIsSavingStart(false);
+    }
+  };
+>>>>>>> 84211e51f2b726d3e283139abebb67ae2100966f
 
   const loadSalaryStats = async () => {
     try {
@@ -201,6 +230,12 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
     year: 'numeric',
   });
 
+  const MONTHS_NAMES_RU = [
+    'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+    'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'
+  ];
+  const currentMonthName = MONTHS_NAMES_RU[currentTime.getMonth()];
+
   return (
     <div className="flex-1 w-full h-full p-4 sm:p-6 md:px-8 md:py-6 flex flex-col gap-5 overflow-y-auto lg:overflow-hidden">
       <div className="w-full bg-white px-6 py-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
@@ -231,7 +266,7 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
                 .{monthMoney.cents} ₽
               </span>
             </div>
-            <div className="text-xs text-slate-400 font-medium">За сентябрь</div>
+            <div className="text-xs text-slate-400 font-medium capitalize">За {currentMonthName}</div>
           </div>
 
           <div className="h-9 w-px bg-slate-200 hidden sm:block" />
@@ -308,6 +343,35 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
                   <Play className="w-4 h-4 fill-current" />
                   <span>{isLoading ? 'Отправка...' : 'Я на смене'}</span>
                 </button>
+              ) : isEditingStart ? (
+                <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-xs space-y-2 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-blue-900">Время начала смены:</span>
+                    <button
+                      onClick={() => setIsEditingStart(false)}
+                      className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newStartTime}
+                      onChange={(e) => setNewStartTime(e.target.value)}
+                      placeholder="10:00:00"
+                      className="flex-1 px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                    <button
+                      onClick={handleSaveStartTime}
+                      disabled={isSavingStart || !newStartTime.trim()}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      {isSavingStart ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      <span>ОК</span>
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-700 text-xs flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -316,15 +380,29 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
                       {shift?.start_time ? `Смена начата в ${shift.start_time}` : 'Смена активна'}
                     </span>
                   </div>
-                  {isShiftInProgress && (
-                    <span className="flex h-2 w-2 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                  )}
-                  {isShiftCompleted && (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {shift && (
+                      <button
+                        onClick={() => {
+                          setNewStartTime(shift.start_time || '10:00:00');
+                          setIsEditingStart(true);
+                        }}
+                        className="p-1 rounded-lg hover:bg-slate-200/70 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                        title="Изменить время начала смены"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {isShiftInProgress && (
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                    )}
+                    {isShiftCompleted && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -382,12 +460,12 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
             </div>
           </div>
 
-          {/* Card 3: Доход за сентябрь */}
+          {/* Card 3: Доход за месяц */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between flex-1 relative overflow-hidden">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-base font-bold text-slate-900">
-                  Доход за сентябрь
+                <h3 className="text-base font-bold text-slate-900 capitalize">
+                  Доход за {currentMonthName}
                 </h3>
                 <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-500">
                   <Wallet className="w-4 h-4" />
@@ -425,7 +503,7 @@ export const ShiftView: React.FC<ShiftViewProps> = ({
 
             <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
               <div>
-                Смен: <span className="font-semibold text-slate-700">{(salaryStats?.completed_shifts_count ?? 7)}</span>
+                Смен: <span className="font-semibold text-slate-700">{(salaryStats?.completed_shifts_count ?? 0)}</span>
               </div>
               <div className="text-slate-500 text-xs">
                 Ставка: <span className="font-semibold text-slate-700">1 667 ₽/смена</span>

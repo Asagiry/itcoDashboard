@@ -138,7 +138,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   if (!issue) return null;
 
   const attachments = parseIssueAttachments(issue);
-  const curCol = TRACKER_COLUMNS.find((c) => c.key === issue.status) || TRACKER_COLUMNS[0];
+  const curCol =
+    TRACKER_COLUMNS.find((c) => c.key === issue.status) ||
+    ((issue.status as string) === 'testing' ? TRACKER_COLUMNS.find((c) => c.key === 'ready_for_testing') : null) ||
+    TRACKER_COLUMNS[0];
 
   return (
     <div

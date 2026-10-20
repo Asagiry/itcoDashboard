@@ -67,3 +67,13 @@ Desktop.ini
 .vscode/
 *.swp
 *.swo
+
+.cvh/llm.json
+llm.json
+.cvh/worktrees/
+
+# CanbanVoimaxHarness Local Runtime
+.cvh/harness.db*
+.cvh/spill/
+.cvh/tasks.json
+.cvh/

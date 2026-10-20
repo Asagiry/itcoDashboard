@@ -155,14 +155,16 @@ async function syncTracker(token, accountId) {
   });
   const userPersonId = userPerson ? userPerson._id : '6a969554b09b44d03f62d9f7';
 
-  // 3. User issues (filter out ready for production & completed/cancelled)
+  // 3. User issues (filter out ready for production, completed/cancelled & testing)
   const EXCLUDED_STATUS_IDS = new Set([
     '6a3f80269e8c40247bc05811', // Ready for Production
     'tracker:status:Done',
     'tracker:status:Resolved',
     'tracker:status:Canceled',
     '69f9c1c3112005c7f3bf440c',
-    '69f9cbcc112005c7f3bf50c6'
+    '69f9cbcc112005c7f3bf50c6',
+    '69f9bb44112005c7f3bf3c6a', // Testing
+    '6a0c39a0364f2924b2573c25'  // Testing
   ]);
 
   const allIssues = await tx.findAll('tracker:class:Issue', {});
@@ -170,6 +172,7 @@ async function syncTracker(token, accountId) {
     if (i.assignee !== userPersonId) return false;
     if (EXCLUDED_STATUS_IDS.has(i.status)) return false;
     if (ID_TO_STATUS[i.status] === 'ready_for_production') return false;
+    if (ID_TO_STATUS[i.status] === 'testing') return false;
     return true;
   });
   const userIssueIds = new Set(userIssues.map(i => i._id));

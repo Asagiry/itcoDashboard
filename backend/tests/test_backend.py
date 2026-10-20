@@ -162,8 +162,57 @@ class BackendTestCase(unittest.TestCase):
             "monthly_rate": 35000.0
         })
 
+    def test_06_start_time_rounding(self):
+        from backend.app.routers.shifts import get_rounded_start_time
+        now = datetime.now(MOSCOW_TZ)
+        
+        # 1. Early arrival before 10:00:00 -> rounds to 10:00:00
+        fake_0930 = datetime(now.year, now.month, now.day, 9, 30, 15, tzinfo=MOSCOW_TZ)
+        with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_0930):
+            self.assertEqual(get_rounded_start_time(), "10:00:00")
+
+        # 2. Arrival exactly at 10:00:00 -> 10:00:00
+        fake_1000 = datetime(now.year, now.month, now.day, 10, 0, 0, tzinfo=MOSCOW_TZ)
+        with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_1000):
+            self.assertEqual(get_rounded_start_time(), "10:00:00")
+
+        # 3. Arrival at 10:05:00 -> 10:05:00 (NOT 11:00:00!)
+        fake_1005 = datetime(now.year, now.month, now.day, 10, 5, 0, tzinfo=MOSCOW_TZ)
+        with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_1005):
+            self.assertEqual(get_rounded_start_time(), "10:05:00")
+
+        # 4. Arrival at 11:20:45 -> 11:20:45
+        fake_1120 = datetime(now.year, now.month, now.day, 11, 20, 45, tzinfo=MOSCOW_TZ)
+        with patch("backend.app.routers.shifts.get_now_dt", return_value=fake_1120):
+            self.assertEqual(get_rounded_start_time(), "11:20:45")
+
     def test_06_update_and_delete_shift(self):
         test_date = "2026-09-01"
+        # 1. Create/update active shift (in_progress, without end_time)
+        r = self.client.put(f"/api/shifts/{test_date}", json={
+            "start_time": "10:00:00",
+            "end_time": "",
+            "status": "in_progress"
+        })
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["shift"]["start_time"], "10:00:00")
+        self.assertIsNone(data["shift"]["end_time"])
+        self.assertEqual(data["shift"]["status"], "in_progress")
+
+        # 2. Update start_time on active shift to 10:05 - should stay in_progress!
+        r = self.client.put(f"/api/shifts/{test_date}", json={
+            "start_time": "10:05:00",
+            "end_time": ""
+        })
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["shift"]["start_time"], "10:05:00")
+        self.assertIsNone(data["shift"]["end_time"])
+        self.assertEqual(data["shift"]["status"], "in_progress")
+
+        # 3. Complete shift with end_time
         r = self.client.put(f"/api/shifts/{test_date}", json={
             "start_time": "10:00:00",
             "end_time": "19:00:00",

@@ -40,19 +40,19 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`w-[295px] min-w-[295px] max-w-[295px] rounded-2xl p-3 border flex flex-col flex-shrink-0 h-full max-h-[calc(100vh-42px)] transition-all ${
+      className={`flex-1 min-w-[180px] rounded-2xl p-3 border flex flex-col h-full transition-all ${
         isDragOver
           ? 'bg-blue-50/70 border-blue-400 ring-2 ring-blue-400/30 shadow-md'
           : 'bg-slate-100/60 border-slate-200/70 shadow-2xs'
       }`}
     >
       {/* Column Header */}
-      <div className="flex items-center justify-between px-1 mb-3 shrink-0 select-none">
-        <div className="flex items-center gap-2">
-          <div className={`w-2.5 h-2.5 rounded-full ${column.dotColor}`} />
-          <span className="font-bold text-xs text-slate-800 tracking-tight">{column.title}</span>
+      <div className="flex items-center justify-between px-1 mb-3 shrink-0 select-none min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${column.dotColor}`} />
+          <span className="font-bold text-xs text-slate-800 tracking-tight truncate">{column.title}</span>
         </div>
-        <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200/80 text-[11px] font-mono font-bold text-slate-600 shadow-2xs">
+        <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200/80 text-[11px] font-mono font-bold text-slate-600 shadow-2xs shrink-0 ml-1">
           {issues.length}
         </span>
       </div>

@@ -149,12 +149,14 @@ export const TrackerView: React.FC<TrackerViewProps> = ({ showToast, onIssuesUpd
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full p-5 overflow-hidden">
+    <div className="flex-1 flex flex-col h-full p-4 sm:p-5 overflow-hidden">
       {/* Kanban Board with Drag & Drop */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-2">
-        <div className="flex gap-4 items-start min-w-max h-full">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-1">
+        <div className="flex gap-3.5 items-stretch w-full h-full min-w-0">
           {TRACKER_COLUMNS.map((col) => {
-            const colIssues = issues.filter((i) => i.status === col.key);
+            const colIssues = issues.filter(
+              (i) => i.status === col.key || (col.key === 'ready_for_testing' && (i.status as string) === 'testing')
+            );
             const isDragOver = dragOverCol === col.key;
 
             return (

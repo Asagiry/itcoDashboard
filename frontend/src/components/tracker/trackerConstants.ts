@@ -34,7 +34,7 @@ export const TRACKER_COLUMNS: ColumnDef[] = [
   },
   {
     key: 'review',
-    title: 'review',
+    title: 'Review',
     dotColor: 'bg-purple-500',
     pillBg: 'bg-purple-50 text-purple-900 border border-purple-200/50',
     pillText: 'text-purple-900',
@@ -42,19 +42,11 @@ export const TRACKER_COLUMNS: ColumnDef[] = [
   },
   {
     key: 'ready_for_testing',
-    title: 'ready for testing',
+    title: 'Ready for testing',
     dotColor: 'bg-indigo-500',
     pillBg: 'bg-indigo-50 text-indigo-900 border border-indigo-200/60',
     pillText: 'text-indigo-900',
     icon: FlaskConical,
-  },
-  {
-    key: 'testing',
-    title: 'Testing',
-    dotColor: 'bg-amber-500',
-    pillBg: 'bg-amber-50 text-amber-900 border border-amber-200/60',
-    pillText: 'text-amber-900',
-    icon: Clock,
   },
   {
     key: 'ready_to_merge',
