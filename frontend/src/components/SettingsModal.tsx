@@ -80,7 +80,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-xs"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           setMouseDownOnBackdrop(true);
@@ -96,7 +96,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }}
     >
       <div
-        className="w-[740px] h-[640px] min-h-[640px] max-h-[640px] max-w-[94vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none cursor-default"
+        className="w-[740px] h-[90dvh] max-h-[640px] max-w-[94vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none cursor-default"
         onMouseDown={(e) => {
           e.stopPropagation();
           setMouseDownOnBackdrop(false);
@@ -104,7 +104,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white select-none cursor-default">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white select-none cursor-default">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-slate-900 select-none cursor-default">Настройки</h3>
           </div>
@@ -117,46 +117,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 pt-3 border-b border-slate-100 bg-slate-50/50 flex gap-2 shrink-0 select-none">
+        <div className="px-4 sm:px-6 pt-3 border-b border-slate-100 bg-slate-50/50 flex gap-1.5 sm:gap-2 overflow-x-auto shrink-0 select-none">
           <button
             onClick={() => setActiveTab('teams')}
-            className={`px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer select-none ${
+            className={`px-3 sm:px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors cursor-pointer select-none whitespace-nowrap ${
               activeTab === 'teams'
                 ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="w-4 h-4 shrink-0" />
             <span>Microsoft Teams</span>
           </button>
 
           <button
             onClick={() => setActiveTab('tracker')}
-            className={`px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer select-none ${
+            className={`px-3 sm:px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors cursor-pointer select-none whitespace-nowrap ${
               activeTab === 'tracker'
                 ? 'border-rose-600 text-rose-600 bg-white shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Kanban className="w-4 h-4" />
+            <Kanban className="w-4 h-4 shrink-0" />
             <span>ITCO Tracker</span>
           </button>
 
           <button
             onClick={() => setActiveTab('salary')}
-            className={`px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer select-none ${
+            className={`px-3 sm:px-4 py-2 rounded-t-xl text-xs font-semibold flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors cursor-pointer select-none whitespace-nowrap ${
               activeTab === 'salary'
                 ? 'border-emerald-600 text-emerald-600 bg-white shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Coins className="w-4 h-4" />
+            <Coins className="w-4 h-4 shrink-0" />
             <span>Оклад и ставки</span>
           </button>
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
           {activeTab === 'teams' && (
             <TeamsSettingsTab
               settings={settings}

@@ -6,7 +6,8 @@ import {
   ShieldCheck,
   CircleDot,
   LogOut,
-  Kanban
+  Kanban,
+  X
 } from 'lucide-react';
 import { NavTab, Shift, AuthUser } from '../types';
 
@@ -18,6 +19,8 @@ interface SidebarProps {
   onLogout?: () => void;
   user?: AuthUser | null;
   activeTrackerIssuesCount?: number;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +31,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   user,
   activeTrackerIssuesCount,
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
   const navItems = [
     {
@@ -56,7 +61,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-
   const getStatusDisplay = () => {
     if (!shift) return { label: 'Загрузка...', color: 'text-slate-400 bg-slate-100' };
     switch (shift.status) {
@@ -71,12 +75,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const statusInfo = getStatusDisplay();
 
-  return (
-    <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between shrink-0 select-none shadow-[1px_0_4px_rgba(0,0,0,0.02)]">
+  const renderContent = (isMobile = false) => (
+    <>
       <div>
-        <div className="px-6 py-6 border-b border-slate-100">
+        <div className="px-6 py-5 sm:py-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -88,6 +92,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
           </div>
+          {isMobile && onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="Закрыть меню"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         <nav className="p-3 space-y-1">
@@ -103,8 +116,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   } else {
                     onSelectTab(item.id);
                   }
+                  if (isMobile) {
+                    onCloseMobile?.();
+                  }
                 }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                   isActive
                     ? 'bg-blue-50/80 text-blue-700 font-semibold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -158,7 +174,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
             <button
-              onClick={onLogout}
+              onClick={() => {
+                if (isMobile) onCloseMobile?.();
+                onLogout();
+              }}
               className="flex items-center gap-1 text-slate-400 hover:text-rose-600 transition-colors py-1 px-2 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0"
               title="Выйти из системы"
             >
@@ -168,6 +187,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex w-64 bg-white border-r border-slate-200/80 flex-col justify-between shrink-0 select-none shadow-[1px_0_4px_rgba(0,0,0,0.02)] h-full">
+        {renderContent(false)}
+      </aside>
+
+      {/* Mobile Drawer */}
+      {isMobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+            onClick={onCloseMobile}
+          />
+          <aside className="relative z-10 w-72 max-w-[85vw] bg-white border-r border-slate-200/80 flex flex-col justify-between select-none shadow-2xl h-full animate-in slide-in-from-left duration-200">
+            {renderContent(true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

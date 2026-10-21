@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  Menu,
+  Clock,
+  Kanban,
+  ClipboardList,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { ShiftView } from './components/ShiftView';
 import { TrackerView } from './components/TrackerView';
@@ -27,6 +35,7 @@ export const App: React.FC = () => {
   const [history, setHistory] = useState<Shift[]>([]);
   const [trackerIssues, setTrackerIssues] = useState<TrackerIssue[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -200,7 +209,50 @@ export const App: React.FC = () => {
   }, [shift?.previous_report, shift?.date, history]);
 
   return (
-    <div className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 antialiased overflow-hidden font-sans">
+    <div className="flex flex-col md:flex-row h-screen h-[100dvh] w-screen bg-[#f8fafc] text-slate-800 antialiased overflow-hidden font-sans">
+      {/* Mobile Top Header */}
+      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80 shrink-0 select-none z-30">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-1.5 -ml-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Открыть меню"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <span className="font-bold text-slate-900 text-sm tracking-tight">ITCO Dashboard</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {shift?.status === 'in_progress' ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              В работе
+            </span>
+          ) : shift?.status === 'completed' ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              Завершена
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
+              Не начата
+            </span>
+          )}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Настройки"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
       <Sidebar
         currentTab={currentTab}
         onSelectTab={(tab) => {
@@ -212,9 +264,11 @@ export const App: React.FC = () => {
         onLogout={() => api.logout()}
         user={user}
         activeTrackerIssuesCount={activeTrackerIssuesCount}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative pb-16 md:pb-0">
         {currentTab === 'shift' && (
           <ShiftView
             shift={shift}
@@ -246,6 +300,68 @@ export const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 flex items-center justify-around safe-area-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.04)] select-none">
+        <button
+          onClick={() => {
+            setCurrentTab('shift');
+            localStorage.setItem('itco_active_tab', 'shift');
+          }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+            currentTab === 'shift' ? 'text-blue-600 font-semibold' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <div className="relative">
+            <Clock className="w-5 h-5" />
+            {shift?.status === 'in_progress' && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+            )}
+          </div>
+          <span className="text-[11px] mt-0.5">Смена</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('tracker');
+            localStorage.setItem('itco_active_tab', 'tracker');
+          }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+            currentTab === 'tracker' ? 'text-blue-600 font-semibold' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <div className="relative">
+            <Kanban className="w-5 h-5" />
+            {activeTrackerIssuesCount > 0 && (
+              <span className="absolute -top-1 -right-2 px-1 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 ring-1 ring-white">
+                {activeTrackerIssuesCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] mt-0.5">Задачи</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('history');
+            localStorage.setItem('itco_active_tab', 'history');
+          }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+            currentTab === 'history' ? 'text-blue-600 font-semibold' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <ClipboardList className="w-5 h-5" />
+          <span className="text-[11px] mt-0.5">История</span>
+        </button>
+
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[11px] mt-0.5">Меню</span>
+        </button>
+      </nav>
 
       <SettingsModal
         isOpen={isSettingsOpen}
